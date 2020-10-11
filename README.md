@@ -1,2 +1,2 @@
-# Building-Vectorization-3D
+# Building-Vectorization
 Multi-task cGAN for 3D Building Reconstruction
