@@ -26,28 +26,25 @@ class XdibiasDSMLoader(data.Dataset):
         """Initialize the training dataset"""
 
         self.opt = opt
-        self.config = cfg     
-        if hasattr(opt,"DSM") and not opt.DSM is None:
+        self.config = cfg
+             
+        if hasattr(opt,"DSM") and not opt.DSM is None: # skip
             self.config["data"]["DSM"] = opt.DSM[0]
             del self.config["data"]["Out"]
 
-        if hasattr(opt,"Ortho") and  not opt.Ortho is None:
+        if hasattr(opt,"Ortho") and  not opt.Ortho is None: # skip
             self.config["data"]["Ortho"] = opt.Ortho[0]
-        
-        #pdb.set_trace()
+                
+        """  load stereo DSM  """
         if len(roi) == 0:
             self.DSM = xdibias.Image(self.config["data"]["DSM"])
         else:
             self.DSM = xdibias.Image(self.config["data"]["DSM"],xs=int(roi[0]),ys=int(roi[1]),width=int(roi[2]),height=int(roi[3]))
-            #self.DSM = xdibias.Image(self.config["DSM"])
 
-        bbox = self.DSM.boundingBox()       
-        #print bbox
-
-        #self.Ortho = xdibias.Image(self.config["data"]["Ortho"])
-        #bbox = self.Ortho.boundingBox()  
+        bbox = self.DSM.boundingBox() # set roi bounding box: xdibias.Image.boundingBox()        
         
         
+        """  load ground truth DSM  """
         if "Out" in self.config["data"]:
             self.Out = xdibias.Image(self.config["data"]["Out"])
             assert(self.DSM.XCellRes == self.Out.XCellRes)
@@ -56,6 +53,7 @@ class XdibiasDSMLoader(data.Dataset):
         else:
             self.Out = None
             
+        """  load orthophoto  """    
         if "Ortho" in self.config["data"]:
             # open ortho image and use that as second channel
             self.Ortho = xdibias.Image(self.config["data"]["Ortho"])
@@ -65,6 +63,7 @@ class XdibiasDSMLoader(data.Dataset):
         else:
             self.Ortho = None
         
+        """  load building mask  """
         if "MASK" in self.config["data"]:
             # open mask image and use that as output for surface normals
             self.MASK = xdibias.Image(self.config["data"]["MASK"])
@@ -74,7 +73,7 @@ class XdibiasDSMLoader(data.Dataset):
         else:
             self.MASK = None
         
-        #pdb.set_trace()
+        """  cut roi  """
         # crop to common intersection and check Resolution
         #print "Union box", (bbox.left,bbox.right, bbox.bottom, bbox.top)
         self.DSM = self.DSM.getROIImage(bbox)
@@ -84,14 +83,12 @@ class XdibiasDSMLoader(data.Dataset):
             self.Ortho = self.Ortho.getROIImage(bbox, gridtol=0.5)
         if not self.MASK is None:
             self.MASK = self.MASK.getROIImage(bbox, gridtol=0.5)
-                
+                        
         # calculate number of training patches
-        self.tilesPerRow = int(self.DSM.Columns / (self.opt.fineSize-self.opt.overlap))
-        self.ntiles = int(self.DSM.Rows / (self.opt.fineSize-self.opt.overlap)) * self.tilesPerRow
+        self.tilesPerRow = int(self.DSM.Columns / (self.opt.fineSize-self.opt.overlap)) # default: 30733/(256-0)=120
+        self.ntiles = int(self.DSM.Rows / (self.opt.fineSize-self.opt.overlap)) * self.tilesPerRow # default: 40000/(256-0)*120=18720
 
-    
-        #assert(opt.resize_or_crop == 'crop')
-
+        """  info to remove DSM outliers  """
         # compute normalization using DSM
         # normalize with 5% quantiles.
         # Extract minQuantile from config file
@@ -99,24 +96,24 @@ class XdibiasDSMLoader(data.Dataset):
         # It removes outliers 
         if self.opt.isTrain == True: 
             IN = self.DSM.readImageData()
-            self.minQuant = np.percentile(IN,self.config["minQuantile"]) 
+            self.minQuant = np.percentile(IN,self.config["minQuantile"]) # 1% of DSM height values, default: 26
             
             ## compute outliers for modeling
-            self.data_min = IN.min()
-            self.data_max = IN.max()
+            self.data_min = IN.min() # default: -41
+            self.data_max = IN.max() # default: 308
             
-            # save to the disk train options
+            # save to the disk train_options
             expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
             d = {'value_minQuant': str(self.minQuant), 
                  'minQuantile': str(self.config["minQuantile"])}
                  
             if self.Ortho:
-                self.p2, self.p98 = np.percentile(self.Ortho.readImageData(), (1, 99))
+                self.p2, self.p98 = np.percentile(self.Ortho.readImageData(), (1, 99)) # 2% and 98% of orthophoto values, default: 102,475
                 d = {'p2' : str(self.p2), 
                      'p98': str(self.p98)}
                  
             with open((os.path.join(expr_dir, "train_config.yaml")), 'w') as cf:
-                yaml.dump(d, cf, default_flow_style=False)
+                yaml.dump(d, cf, default_flow_style=False) ### Q3: save ortho only?
                 
         # Test phase    
         else:
@@ -139,18 +136,17 @@ class XdibiasDSMLoader(data.Dataset):
                 self.p2, self.p98 = np.percentile(self.Ortho.readImageData(), (1, 99))
                 print "self.p2, self.p98:", self.p2, self.p98
         
-            
+        """  transform to tensor  """    
         transform_list = [transforms.ToTensor()]
-
         self.transform = transforms.Compose(transform_list)
            
 
     def __getitem__(self, index):
+    
+        """  position of this patch  """
         # compute tile position
         j = (index % self.tilesPerRow) * (self.opt.fineSize-self.opt.overlap)
         i = (index / self.tilesPerRow) * (self.opt.fineSize-self.opt.overlap)
-        
-        
 
         if self.opt.isTrain:
             # slight random shifting of the tile, up to one tilesize
@@ -162,35 +158,32 @@ class XdibiasDSMLoader(data.Dataset):
             j = min(j, self.DSM.Columns - self.opt.fineSize)
             
             print i, j
-       
         
-        
-        
-        sample = {}
-         
-        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) #outliers = self.opt.isTrain
+        pdb.set_trace()
+        """  extract patch img from dataset  """        
+        ## stereo dsm ##
+        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4?? not using outliers?
         #print "input_dsm", input_dsm.min(), input_dsm.max()
-        input_dsm = Image.fromarray(input_dsm)
+        input_dsm = Image.fromarray(input_dsm) # stereo dsm
         
-        #pdb.set_trace()
-        
-        
+        ## ground truth dsm ##
         if self.Out is not None:       
-            gt_model = self.getPatch(self.Out, i, j, norm=norm_params)
+            gt_model = self.getPatch(self.Out, i, j, norm=norm_params) # share stereo dsm's norm_param
             #print "gt_model", gt_model.min(), gt_model.max()
             gt_model = Image.fromarray(gt_model)
 
-
+        ## ortho photo ##
         if self.Ortho is not None:
-            input_ortho = self.getPatch(self.Ortho, i, j, norm="intensity")
+            input_ortho = self.getPatch(self.Ortho, i, j, norm="intensity") # norm p2,p98 & [0,255]
             #print "input_ortho", input_ortho.min(), input_ortho.max()
             input_ortho = Image.fromarray(input_ortho)
 
-            
+        ## building mask ##    
         if self.MASK:
             gt_mask = self.getPatch(self.MASK, i, j, norm=False)
             gt_mask = Image.fromarray(gt_mask)
-            
+        
+        """  random flip  """    
         if self.opt.isTrain:    
             # Random horizontal flipping
             if random.random() > 0.5:            
@@ -209,15 +202,17 @@ class XdibiasDSMLoader(data.Dataset):
                 if self.MASK is not None:
                     gt_mask = TF.vflip(gt_mask)        
         
-        
-        sample["A"] = self.transform(input_dsm)
-        sample["B"] = self.transform(gt_model) 
+        """  create return samples  """
+        sample = {} # create return sample
+           
+        sample["A"] = self.transform(input_dsm) # A: stereo dsm
+        sample["B"] = self.transform(gt_model) # B: ground truth dsm
         if self.Ortho is not None:
-            sample["Ortho"] = self.transform(input_ortho)
+            sample["Ortho"] = self.transform(input_ortho) # Ortho: orthophoto
         if self.MASK is not None:
-            sample["M"] = self.transform(gt_mask)
+            sample["M"] = self.transform(gt_mask) # M: building mask
                 
-        sample["factor"] = norm_params
+        sample["factor"] = norm_params # factor: norm params of stero dsm
        
         return sample
         
@@ -227,9 +222,9 @@ class XdibiasDSMLoader(data.Dataset):
         patch = img.readImageData(roi=(slice(i,i+self.opt.fineSize),
                                        slice(j,j+self.opt.fineSize)))
                                        
-        if outliers and self.opt.isTrain:
-            if random.random() > 0.5: 
-                patch = outsim.outlier_simulation(patch, self.data_min,self.minQuant)
+        if outliers and self.opt.isTrain: ### Q5: outliers=False? 
+            if random.random() > 0.5: ### Q6: random?
+                patch = outsim.outlier_simulation(patch, self.data_min,self.minQuant) 
                 #pdb.set_trace()
 
         limits = None

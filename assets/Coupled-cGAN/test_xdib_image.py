@@ -2,7 +2,7 @@ import time
 import os
 from options.test_options import TestOptions
 from data.xdibias_dataset import XdibiasDSMLoader
-from data.xdibias_dataset_PC import XdibiasPCDSMLoader
+#from data.xdibias_dataset_PC import XdibiasPCDSMLoader
 from models.models import create_model
 from torch.autograd import Variable
 import torch
@@ -35,9 +35,9 @@ if __name__ == "__main__":
     optparse.parser.add_argument('--xd_loader', type=str, default='XdibiasDSMLoader',
                         help="xdibias data loader")
     
-    #pdb.set_trace()
-    opt = optparse.parse()
     
+    opt = optparse.parse()
+    #pdb.set_trace()
     opt.nThreads = 1   # test code only supports nThreads = 1
     opt.batchSize = 1  # test code only supports batchSize = 1
     opt.serial_batches = True  # no shuffle
@@ -47,11 +47,7 @@ if __name__ == "__main__":
         config = yaml.load(cf)
     
     """ Load training dataset """
-    if opt.xd_loader == "XdibiasDSMLoader":
-        dataset = XdibiasDSMLoader(opt, config, config["data"]["roi_test"])
-    elif opt.xd_loader == "XdibiasPCDSMLoader":
-        dataset = XdibiasPCDSMLoader(opt, config, config["data"]["roi_test"])
-    #dataset = XdibiasDSMLoader(opt, config, config["data"]["roi_test"])
+    dataset = XdibiasDSMLoader(opt, config, config["data"]["roi_test"])
     dataset_loader = torch.utils.data.DataLoader(dataset,
                                                batch_size = opt.batchSize,
                                                shuffle = False,

@@ -10,7 +10,7 @@ def create_model(opt):
         assert(opt.dataset_mode == 'aligned')
         from .pix2pix_model import Pix2PixModel
         #from .pix2pix_model_LossTrainedParam import Pix2PixModel
-        model = Pix2PixModel()
+        model = Pix2PixModel() # pix2pix_model.py
     else:
         raise ValueError("Model [%s] not recognized." % opt.model)
     model.initialize(opt)

@@ -19,6 +19,8 @@ from pytorchtools import EarlyStopping
 
 import argparse
 
+
+"""  logger   """
 logger = logging.getLogger(__name__)
 
 logger.debug("Setting random seeds to zero!")
@@ -29,52 +31,37 @@ except ValueError:
         "[ERROR] PYTHONHASHSEED must be set before starting python to" +
         " get reproducible results!"
     )
-#random.seed(0)
-#np.random.seed(0)
-#torch.manual_seed(0)
-#SEED = 123
-#torch.manual_seed(SEED)
-#torch.backends.cudnn.deterministic = True
-#torch.backends.cudnn.benchmark = False
-#np.random.seed(SEED)
 
-    
+"""  fix random seeds to get reproduced experiments  """
 SEED = 123
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-torch.manual_seed(SEED)
+torch.manual_seed(SEED) ### Q1: set twice?
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.set_num_threads(1)
-np.random.seed(SEED)
+np.random.seed(SEED) ### Q2: set twice?
 
-optparse = TrainOptions()
-#pdb.set_trace()
+"""  define and parse arguments  """
+optparse = TrainOptions() ## from options.train_options import TrainOptions
 optparse.parser.add_argument('--xd_loader', type=str, default='XdibiasDSMLoader',
                     help="xdibias data loader")
-opt = optparse.parse()
+opt = optparse.parse() # <class argparse.Namespace>
 
-## define and parse arguments
-#parser = argparse.ArgumentParser()
-#parser.add_argument('--xd_loader', type=str, default='XdibiasDSMLoader',
-#                    help="xdibias data loader")
-#                        
-#opt = TrainOptions().parse()
-
+"""  read dataset configuration  """
 # read YAML/JSON config file
 with open(os.path.join(opt.dataroot, "config.yaml")) as cf:
-    config = yaml.load(cf)
+    config = yaml.load(cf) # <list>
 
 loglevel = {"debug": logging.DEBUG, "info": logging.INFO, "warning": logging.WARNING, "error": logging.ERROR, "critical": logging.CRITICAL}
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=loglevel[opt.log_lvl.lower()])
 
-""" Load training dataset """
-if opt.xd_loader == "XdibiasDSMLoader":
-    dataset_train = XdibiasDSMLoader(opt, config, config["data"]["roi_train"])
 
-
-#dataset_train = XdibiasDSMLoader(opt, config, config["data"]["roi_train"])    
+"""  Load training dataset  """
+pdb.set_trace()
+dataset_train = XdibiasDSMLoader(opt, config, config["data"]["roi_train"]) ### data.xdibias_dataset.py: Q3,Q4,Q5,Q6
+   
 train_loader = torch.utils.data.DataLoader(dataset_train,
                                            batch_size = opt.batchSize,
                                            shuffle = not opt.serial_batches,
@@ -84,12 +71,10 @@ train_loader = torch.utils.data.DataLoader(dataset_train,
 n_samples_train = len(dataset_train)
 logger.info('Got %d training images per epoch' % n_samples_train)
 
+"""  Load validation dataset  """
+pdb.set_trace()
+dataset_val = XdibiasDSMLoader(opt, config, config["data"]["roi_val"])    
 
-""" Load validation dataset """
-if opt.xd_loader == "XdibiasDSMLoader":
-    dataset_val = XdibiasDSMLoader(opt, config, config["data"]["roi_val"])
-
-#dataset_val = XdibiasDSMLoader(opt, config, config["data"]["roi_val"])    
 val_loader = torch.utils.data.DataLoader(dataset_val,
                                            batch_size = opt.batchSize,
                                            shuffle = not opt.serial_batches,
@@ -100,26 +85,21 @@ val_loader = torch.utils.data.DataLoader(dataset_val,
 n_samples_val = len(dataset_val)
 logger.info('Got %d validation images' % n_samples_val)
 
-#pdb.set_trace()                                   
-            
-#dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
-#data_loader = CreateDataLoader(opt)
-#dataset = data_loader.load_data()
-#dataset_size = len(dataset)
 
-#print('#training images = %d' % dataset_size)
-#logger.info('Got %d training images per epoch' % dataset_size)
-
-model = create_model(opt)
-visualizer = Visualizer(opt)
+"""  create model  """
+pdb.set_trace()                                               
+model = create_model(opt) # models.models.py  models.pix2pix_model.py
+visualizer = Visualizer(opt) # util.visualizer.py
 total_steps = 0
 
+"""  validation metrics  """
 # set up validation metrics
-val_metric = metrics.RMSE
+val_metric = metrics.RMSE # metrics.py
 best_metric = np.inf 
 val_result = {}
 val_result = np.inf
 
+"""  early stopping  """
 # initialize the early_stopping object
 early_stopping = EarlyStopping(patience=config["patience"], verbose=True)
 counter = 0
@@ -129,7 +109,7 @@ counter = 0
 #os.makedirs(log_dir, exist_ok=True)
 #tb_writer = SummaryWriter(log_dir)
 
-
+"""  start training  """
 logger.info("Starting training...")
 
 for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
@@ -148,10 +128,15 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
 
         iter_start_time = time.time()
         total_steps += opt.batchSize
-        epoch_iter += opt.batchSize        
-        model.set_input(data)
-        model.optimize_parameters()
+        epoch_iter += opt.batchSize
         
+        ## input a batch data ##        
+        model.set_input(data)
+         
+        ## training ##
+        model.optimize_parameters() # Optimize
+        
+        ## visualization ##
         if total_steps % opt.display_freq == 0:
         #if total_steps % (len(dataset_val)/opt.batchSize) == 0:
             visualizer.display_current_results(model.get_current_visuals(), epoch)

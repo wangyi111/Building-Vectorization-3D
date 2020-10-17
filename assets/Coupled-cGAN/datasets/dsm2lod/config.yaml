@@ -6,9 +6,9 @@ logging:
   n_val_imgs: 5
 data:
   DSM: /home/wang_yi/la/dataset/WV-1/Dfilled_geoid_roi #train stereo dsm
-  MASK: /home/wang_yi/la/dataset/BMdirectFromLOD2filled_roi_GEOKOL #train building mask
+  MASK: /home/wang_yi/la/dataset/BMdirectFromLOD2filled_roi_GEOKOL #building mask for norm-loss
   Ortho: /home/wang_yi/la/dataset/WV-1/O.3 #orthophoto(pan)
-  Out: /home/wang_yi/la/dataset/LOD2filled_wth_DGM_roi_intrp_GEOKOLref #GroundTruth (corners)
+  Out: /home/wang_yi/la/dataset/LOD2filled_wth_DGM_roi_intrp_GEOKOLref #GroundTruth DSM
   roi_train: [0, 0, 30733, 40000]
   roi_val: [0, 40000, 30733, 5999]
   roi_test: [30733, 0, 4950, 45999] #[30733, 0, 4950, 5999]
