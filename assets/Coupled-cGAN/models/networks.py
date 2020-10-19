@@ -43,6 +43,7 @@ import architectures.R2U_Net as r2unet
 # Functions
 ###############################################################################
 
+"""  ???  """
 class mergeNet(nn.Module):
     def __init__(self, net):
         super(mergeNet, self).__init__()
@@ -61,7 +62,8 @@ class mergeNet(nn.Module):
         G = self.modelG(input)
         
         return G
-        
+
+"""  ???  """        
 class mergeGAN(nn.Module):
     def __init__(self, netG, netD):
         super(mergeGAN, self).__init__()
@@ -86,10 +88,11 @@ class mergeGAN(nn.Module):
         
         G = self.modelG(input)
         
-        D = self.modelD
+        D = self.modelD # ???
         
         return G, D
-        
+
+"""  function: display image  """        
 def show_grayscale_image(tensor):
     # IPython.display can only show images from a file.
     # So we mock up an in-memory file to show it.
@@ -103,7 +106,8 @@ def show_grayscale_image(tensor):
     a = np.uint8(tensor.mul(255).numpy()) 
     img = Image.fromarray(a)
     plt.show(plt.imshow(img))
-    
+
+"""  function: initialize weights  """    
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Conv') != -1:
@@ -114,19 +118,19 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
-
+"""  function: define normalization layers  """
 def get_norm_layer(norm_type='instance'):
     if norm_type == 'batch':
         norm_layer = functools.partial(nn.BatchNorm2d, affine=True)
     elif norm_type == 'instance':
-        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False)
+        norm_layer = functools.partial(nn.InstanceNorm2d, affine=False) # usually for GAN IN works better (yi)
     elif norm_type == 'none':
         norm_layer = None
     else:
         raise NotImplementedError('normalization layer [%s] is not found' % norm_type)
     return norm_layer
        
-    
+"""  ???  """    
 class concatNet(nn.Module):
     def __init__(self, net1, net2, input_nc, output_nc, norm_layer=nn.BatchNorm2d, output_func="tanh"):
         super(concatNet, self).__init__()
@@ -137,11 +141,9 @@ class concatNet(nn.Module):
             use_bias = norm_layer.func == nn.InstanceNorm2d
         else:
             use_bias = norm_layer == nn.InstanceNorm2d
-            
-            
+                        
         self.branches = nn.ModuleList([net1,net2])
         
-
         self.fuse_conv = nn.Sequential( 
                                 nn.ReLU(True),
                                 nn.ConvTranspose2d(input_nc * 256, output_nc*64,
@@ -152,8 +154,6 @@ class concatNet(nn.Module):
                                           stride=1, padding=0, bias=use_bias),
                                 nn.Tanh()
                                 )
-
-
                                              
     def forward(self, inputA, inputO):
 
@@ -161,6 +161,7 @@ class concatNet(nn.Module):
         out = self.fuse_conv(fusion)  
         return out
 
+"""  Generator  """
 def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False, gpu_ids=[], pretrained = False, output_func="tanh", fusion = False):
     print input_nc, output_nc, ngf
     netG = None
@@ -194,7 +195,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
         #netG = resnet.CoupledUNetlowerResnet(backbone = "resnet34")
         netG = UResNet.CoupledUNetLowerResnet(backbone = "resnet34") # my written 2-nd version, where the number of channels in decoder is smaller
     elif which_model_netG == 'Coupled_UResNet50':
-        netG = resnet.CoupledUNetupperResnet(backbone = "resnet50")
+        netG = resnet.CoupledUNetupperResnet(backbone = "resnet50") ## currently using! change generator architecture here!!!! (new!)
     elif which_model_netG == 'Coupled_UResNet101':
         netG = resnet.CoupledUNetupperResnet(backbone = "resnet101")
     elif which_model_netG == 'Coupled_UResNet152':
@@ -231,7 +232,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
             
     return netG
 
-
+"""  Discriminator  """
 def define_D(input_nc, ndf, which_model_netD,
              n_layers_D=3, norm='batch', use_sigmoid=False, gpu_ids=[]):
     netD = None
@@ -241,7 +242,7 @@ def define_D(input_nc, ndf, which_model_netD,
     if use_gpu:
         assert(torch.cuda.is_available())
     if which_model_netD == 'basic':
-        netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid, gpu_ids=gpu_ids)
+        netD = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer, use_sigmoid=use_sigmoid, gpu_ids=gpu_ids) ## currently using! change architectures here! (new!)
     elif which_model_netD == 'n_layers':
         netD = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer, use_sigmoid=use_sigmoid, gpu_ids=gpu_ids)
     else:
@@ -251,10 +252,10 @@ def define_D(input_nc, ndf, which_model_netD,
         #netD.cuda(device_id=gpu_ids[0])
         netD.cuda(gpu_ids[0])
         
-    netD.apply(weights_init)
+    netD.apply(weights_init) ### ????
     return netD
 
-
+"""  function: print numbers of network parameters  """
 def print_network(net):
     num_params = 0
     for param in net.parameters():
@@ -267,7 +268,7 @@ def print_network(net):
 # Classes
 ##############################################################################
 
-
+"""  GAN loss  """
 # Defines the GAN loss which uses either LSGAN or the regular GAN.
 # When LSGAN is used, it is basically same as MSELoss,
 # but it abstracts away the need to create the target label tensor
@@ -308,8 +309,9 @@ class GANLoss(nn.Module):
 
     def __call__(self, input, target_is_real):
         target_tensor = self.get_target_tensor(input, target_is_real)
-        return self.loss(input, target_tensor)
+        return self.loss(input, target_tensor) ### ??????
 
+"""  surface normal loss  """  ## to be learned
 class BuidingSurfaceNormalLoss(nn.Module):
     def __init__(self, tensor=torch.FloatTensor):
         super(BuidingSurfaceNormalLoss, self).__init__()
@@ -318,7 +320,7 @@ class BuidingSurfaceNormalLoss(nn.Module):
     def __call__(self, fake_B, real_B, mask, stretch):
     
         # deNormalization of real_B and fake_B from [-1,1] to standart normal values        
-        fake =(((fake_B + 1)*(0.5*(stretch[0][1].float()-stretch[0][0])).cuda().view(-1,1,1,1))+stretch[0][0].cuda().view(-1,1,1,1))
+        fake =(((fake_B + 1)*(0.5*(stretch[0][1].float()-stretch[0][0])).cuda().view(-1,1,1,1))+stretch[0][0].cuda().view(-1,1,1,1)) ### stretch??
         real =(((real_B + 1)*(0.5*(stretch[0][1].float()-stretch[0][0])).cuda().view(-1,1,1,1))+stretch[0][0].cuda().view(-1,1,1,1))
 
         # Two 3x3 Filter in x/y-direction (with padding on border):
@@ -455,7 +457,8 @@ class BuidingSurfaceNormalLoss(nn.Module):
             denominator = len(torch.nonzero(validmask))
         #return 1 - tofilter_cosangle_fake/(len(torch.nonzero(validmask))*8)
         return 1 - tofilter_cosangle_fake/(denominator*8)
-        
+
+"""  normal loss???  """        
 class NormalLoss(nn.Module):        
     def __init__(self, tensor=torch.FloatTensor):
         super(NormalLoss, self).__init__()
@@ -564,7 +567,8 @@ class NormalLoss(nn.Module):
         return 1 - torch.div(torch.sum(filter_cosangle),denominator)                
         #return 1 - torch.mean(torch.div(prod,(magnitude_fake*magnitude_real).unsqueeze(1)))
         #return 1 - torch.mean( masked_angles) 
-                
+
+"""  unet blocks???  """                
 def net_blocks(ngf, num_downs, norm_layer, use_dropout):
     unet_block = UnetSkipConnectionBlock(ngf * 8, ngf * 8, norm_layer=norm_layer, innermost=True)
     
@@ -575,7 +579,8 @@ def net_blocks(ngf, num_downs, norm_layer, use_dropout):
     unet_block = UnetSkipConnectionBlock(ngf, ngf * 2, unet_block, norm_layer=norm_layer)
     
     return unet_block
-        
+
+"""  ???  """        
 class WnetGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, num_downs, ngf=64,
                  norm_layer=nn.BatchNorm2d, use_dropout=False, gpu_ids=[], output_func="tanh"):
@@ -599,6 +604,7 @@ class WnetGenerator(nn.Module):
         
         return self.model(input)
 
+"""  ???  """
 class InputBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, outer_nc_out=None):
@@ -622,6 +628,7 @@ class InputBlock(nn.Module):
     def forward(self, x):
         return self.model(x)
 
+"""  ???  """
 class OutBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, outer_nc_out=None,
@@ -654,7 +661,8 @@ class OutBlock(nn.Module):
     def forward(self, x):
 
         return self.model(x)
-            
+
+"""  ???  """            
 class CoupledGenerator(nn.Module):
     def __init__(self, input_nc, output_nc, num_downs, ngf=64,
                  norm_layer=nn.BatchNorm2d, use_dropout=False, gpu_ids=[], output_func="tanh"):
@@ -684,7 +692,7 @@ class CoupledGenerator(nn.Module):
                 #pdb.set_trace()
                 m.eval() 
                     
-
+"""  ???  """
 class CoNetSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, outer_nc_out=None,
@@ -830,6 +838,7 @@ class CoNetSkipConnectionBlock(nn.Module):
                         
         return out    
 
+"""  ???  """
 class CoNetLateShareSkipConnectionBlock(nn.Module):
     def __init__(self, outer_nc, inner_nc,
                  submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False, outer_nc_out=None,
@@ -973,7 +982,8 @@ class CoNetLateShareSkipConnectionBlock(nn.Module):
         out = self.last_up(up1)
                         
         return out   
-           
+
+"""  u-net generator???  """           
 # Defines the Unet generator.
 # |num_downs|: number of downsamplings in UNet. For example,
 # if |num_downs| == 7, image of size 128x128 will become of size 1x1
@@ -1006,7 +1016,7 @@ class UnetGenerator(nn.Module):
             #make_dot(self.model(input)).view()
             return self.model(input)
 
-
+"""  u-net skip connection  """
 # Defines the submodule with skip connection.
 # X -------------------identity---------------------- X
 #   |-- downsampling -- |submodule| -- upsampling --|
@@ -1075,7 +1085,7 @@ class UnetSkipConnectionBlock(nn.Module):
             
             return torch.cat([x, self.model(x)], 1)
 
-            
+"""  Discriminator: PatchGAN  """            
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):
     def __init__(self, input_nc, ndf=64, n_layers=3, norm_layer=nn.BatchNorm2d, use_sigmoid=False, gpu_ids=[]):

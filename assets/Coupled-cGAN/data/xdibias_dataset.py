@@ -3,7 +3,7 @@ import random
 import yaml
 import numpy as np
 #import pylab as pl
-
+import cv2 # new!
 from torchvision.transforms import transforms
 import torchvision.transforms.functional as TF
 import torch.utils.data as data
@@ -48,7 +48,7 @@ class XdibiasDSMLoader(data.Dataset):
         if "Out" in self.config["data"]:
             self.Out = xdibias.Image(self.config["data"]["Out"])
             assert(self.DSM.XCellRes == self.Out.XCellRes)
-            assert(self.DSM.XCellRes == self.Out.XCellRes)
+            assert(self.DSM.XCellRes == self.Out.XCellRes) ### Q7: YCellRes?
             xdibias.geo.intersectRect(bbox, self.Out.boundingBox())
         else:
             self.Out = None
@@ -73,6 +73,16 @@ class XdibiasDSMLoader(data.Dataset):
         else:
             self.MASK = None
         
+        """  load core points (new!)  """
+        if "Edges" in self.config["data"]:
+            # open edges image and use that as ground truth for core_points prediction
+            self.Edges = xdibias.Image(self.config["data"]["Edges"])
+            assert(self.DSM.XCellRes == self.Edges.XCellRes)
+            assert(self.DSM.XCellRes == self.Edges.XCellRes)
+            xdibias.geo.intersectRect(bbox, self.Edges.boundingBox())
+        
+        
+        
         """  cut roi  """
         # crop to common intersection and check Resolution
         #print "Union box", (bbox.left,bbox.right, bbox.bottom, bbox.top)
@@ -82,7 +92,9 @@ class XdibiasDSMLoader(data.Dataset):
         if not self.Ortho is None:
             self.Ortho = self.Ortho.getROIImage(bbox, gridtol=0.5)
         if not self.MASK is None:
-            self.MASK = self.MASK.getROIImage(bbox, gridtol=0.5)
+            self.MASK = self.MASK.getROIImage(bbox, gridtol=0.5)        
+        if not self.Edges is None: 
+            self.Edges = self.Edges.getROIImage(bbox, gridtol=0.5) # new!
                         
         # calculate number of training patches
         self.tilesPerRow = int(self.DSM.Columns / (self.opt.fineSize-self.opt.overlap)) # default: 30733/(256-0)=120
@@ -159,10 +171,10 @@ class XdibiasDSMLoader(data.Dataset):
             
             print i, j
         
-        pdb.set_trace()
+        #pdb.set_trace()
         """  extract patch img from dataset  """        
         ## stereo dsm ##
-        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4?? not using outliers?
+        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4: not using outliers?
         #print "input_dsm", input_dsm.min(), input_dsm.max()
         input_dsm = Image.fromarray(input_dsm) # stereo dsm
         
@@ -183,6 +195,13 @@ class XdibiasDSMLoader(data.Dataset):
             gt_mask = self.getPatch(self.MASK, i, j, norm=False)
             gt_mask = Image.fromarray(gt_mask)
         
+        ## Edges (new!) ##
+        if self.Edges:
+            pdb.set_trace()
+            gt_edges = self.getPatch(self.Edges, i, j, norm=False)
+            #gt_edges = Image.fromarray(gt_edges)
+            
+                
         """  random flip  """    
         if self.opt.isTrain:    
             # Random horizontal flipping
@@ -193,6 +212,8 @@ class XdibiasDSMLoader(data.Dataset):
                     input_ortho = TF.hflip(input_ortho)
                 if self.MASK is not None:
                     gt_mask = TF.hflip(gt_mask)
+                if self.Edges is not None:
+                    gt_edges = cv2.flip(gt_edges,1) # new!
                            
             if random.random() < 0.5:            
                 input_dsm = TF.vflip(input_dsm)
@@ -200,8 +221,11 @@ class XdibiasDSMLoader(data.Dataset):
                 if self.Ortho is not None:
                     input_ortho = TF.vflip(input_ortho)
                 if self.MASK is not None:
-                    gt_mask = TF.vflip(gt_mask)        
-        
+                    gt_mask = TF.vflip(gt_mask)
+                if self.Edges is not None:
+                    gt_edges = cv2.flip(gt_edges,0) # new!    
+                        
+        pdb.set_trace()
         """  create return samples  """
         sample = {} # create return sample
            
@@ -211,6 +235,8 @@ class XdibiasDSMLoader(data.Dataset):
             sample["Ortho"] = self.transform(input_ortho) # Ortho: orthophoto
         if self.MASK is not None:
             sample["M"] = self.transform(gt_mask) # M: building mask
+        if self.Edges is not None:
+            sample["Edges"] = self.transform(gt_edges) # Edges: building edges (new!)
                 
         sample["factor"] = norm_params # factor: norm params of stero dsm
        
@@ -221,7 +247,7 @@ class XdibiasDSMLoader(data.Dataset):
 
         patch = img.readImageData(roi=(slice(i,i+self.opt.fineSize),
                                        slice(j,j+self.opt.fineSize)))
-                                       
+        #pdb.set_trace()                               
         if outliers and self.opt.isTrain: ### Q5: outliers=False? 
             if random.random() > 0.5: ### Q6: random?
                 patch = outsim.outlier_simulation(patch, self.data_min,self.minQuant) 

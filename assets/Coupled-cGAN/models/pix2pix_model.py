@@ -24,6 +24,7 @@ from loss_functions import FullNormalLoss
 import logging
 logger = logging.getLogger(__name__)
 
+"""  function: display image  """
 def show_grayscale_image(tensor):
     # IPython.display can only show images from a file.
     # So we mock up an in-memory file to show it.
@@ -37,7 +38,8 @@ def show_grayscale_image(tensor):
     a = np.uint8(tensor.mul(255).numpy()) 
     img = Image.fromarray(a)
     plt.show(plt.imshow(img))
-    
+
+"""  function: initialize weights  """    ### Q8: usage??
 def weights_init(m):
     classname = m.__class__.__name__
     #pdb.set_trace()
@@ -49,6 +51,7 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+"""  function: initialize weights  """    ### Q8: usage???
 def init_weights(net, init_type='normal', gain=0.02):
     def init_func(m):
         classname = m.__class__.__name__
@@ -71,38 +74,44 @@ def init_weights(net, init_type='normal', gain=0.02):
 
     print('initialize network with %s' % init_type)
     net.apply(init_func)
-        
+
+"""  class: Pix2PixModel(BaseModel)  """        
 class Pix2PixModel(BaseModel):
+
+    """ model name  """
     def name(self):
         return 'Pix2PixModel'
 
+    """ model initialization """
     def initialize(self, opt):
-        BaseModel.initialize(self, opt)
+    
+        BaseModel.initialize(self, opt) # opt, gpu_ids, isTrain, Tensor, save_dir
         #pdb.set_trace()
-        self.isTrain = opt.isTrain
-                           
+        self.isTrain = opt.isTrain ### Q9: repeat??                           
         self.input = {}
-           
-        # load/define networks
+                   
         if self.isTrain:
             pretrained = True
         else:
             pretrained = False
-            
+        
+        """ load generator and discriminator """
+        
+        """ Generator """    
         list_of_networks = ['Coupled_unet256', "DeepLab", "Coupled_UResNet", 'DeepLabv3_plus', 
                             'Corentin_UNetResNet50', 'Single_UResNet', "Single_R2U_Net", 
                             "R2AttU_Net","Coupled_R2U_Net", 'Coupled_UResNet18','Coupled_UResNet34', 
                             'Coupled_UResNet50', 'Coupled_UResNet101','Coupled_UResNet152',"PConvUResNet50", "Single_PConvUNet"]
                             
-        to_freeze = ["Coupled_UResNet", 'DeepLabv3_plus','Single_UResNet', "DeepLab"]
+        to_freeze = ["Coupled_UResNet", 'DeepLabv3_plus','Single_UResNet', "DeepLab"] ### Q10: usage??
         
-        if opt.which_model_netG != "W_GAN":
-
+        if opt.which_model_netG != "W_GAN": # default: Coupled_UResNet50
+            pdb.set_trace()
             self.netG = networks.define_G(opt.input_nc, 
                                           opt.output_nc, 
                                           opt.ngf,
                                           opt.which_model_netG, 
-                                          opt.norm, 
+                                          opt.norm, # batch Q10: ever tried instance?
                                           not opt.no_dropout, 
                                           self.gpu_ids, 
                                           pretrained,  
@@ -137,42 +146,38 @@ class Pix2PixModel(BaseModel):
             print "number of self.netG1 param: ", len(list(netG1.parameters()))       
             print "number of self.netG2 param: ", len(list(netG2.parameters())) 
                
-            self.netG = networks.concatNet(netG1,netG2, opt.input_nc, opt.output_nc, opt.output_func) 
-            
-              
+            self.netG = networks.concatNet(netG1,netG2, opt.input_nc, opt.output_nc, opt.output_func)  ### Q11: W_GAN --- two generators?
+                          
         print "number of self.netG param: ", len(list(self.netG.parameters()))
         
         if len(self.gpu_ids) > 0:
             self.netG.cuda(self.gpu_ids[0])
-       
+        
+        """ initialize or load weights """
+        # if "start training" 
         if self.isTrain:
             
             if opt.which_model_netG == "Single_R2U_Net": 
                 init_weights(self.netG, init_type='kaiming')
                 
             elif opt.which_model_netG not in list_of_networks:
-                self.netG.apply(weights_init)
-                
+                self.netG.apply(weights_init) ### ????
+            
+            """ Discriminator """    ### Q: only defined when isTrain=True????
             use_sigmoid = opt.no_lsgan
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf,
                                           opt.which_model_netD,
                                           opt.n_layers_D, opt.norm, use_sigmoid, self.gpu_ids)            
-            
-        #self.netG.apply(weights_init)
-
+                  
         
-#        for param in self.netG.parameters(): 
-#            print param.data   
-#            pdb.set_trace()        
-                         
-        if not self.isTrain or opt.continue_train:
-            #pdb.set_trace()
-            
+        # if "testing or continue training"                 
+        if not self.isTrain or opt.continue_train: # default: continue_train=False
+            # load generator
             self.load_network(self.netG, 'G', opt.which_epoch)
             
-            if opt.which_model_netG in to_freeze: 
-                self.netG.freeze_bn()
-          
+            if opt.which_model_netG in to_freeze: # Q: freeze BatchNorm2d???
+                self.netG.freeze_bn() 
+            
             if self.isTrain:
                 # load discriminator
                 self.load_network(self.netD, 'D', opt.which_epoch)
@@ -183,21 +188,25 @@ class Pix2PixModel(BaseModel):
                     save_filename = '%s_net_%s.pth' % (opt.which_epoch, "task_weights")
                     save_path = os.path.join(self.save_dir, save_filename)
                     self.task_weights = torch.load(save_path)                    
-
+        
+        """ define losses """
         if self.isTrain:
             
-            self.fake_AB_pool = ImagePool(opt.pool_size)
+            self.fake_AB_pool = ImagePool(opt.pool_size) # default: pool_size=0   ???
             self.old_lr = opt.lr
             
             # define loss functions
-            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor) 
-            
+            """ 01: GAN loss (generator loss?) """
+            self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor)
+             
+            """ 02: L1 loss """
             if opt.adaptive:
                 pdb.set_trace()
                 #self.criterionL1 = AdaptiveLossFunction(2, np.float32, self.gpu_ids[0])
             else:
                 self.criterionL1 = torch.nn.L1Loss()
-            
+                
+            """ 03: normal loss """ ## to be learned
             if self.opt.lambda_SN !=0.0:                            
                 #self.criterionSN = networks.SurfNormalLoss(tensor=self.Tensor)
                 if self.opt.which_Reg == 'NormalLoss':
@@ -207,11 +216,9 @@ class Pix2PixModel(BaseModel):
                 else:
                     self.criterionSN = networks.BuidingSurfaceNormalLoss(tensor=self.Tensor)
                 
-
+            """ weights of the losses & optimizers """
             if self.opt.loss_weights:
                 #pdb.set_trace()
-
-                
                 if not opt.continue_train:
                     # set up losses learning weights
                     self.task_weights = {}
@@ -232,7 +239,7 @@ class Pix2PixModel(BaseModel):
                     self.task_weights["SN"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["SN"]).to("cuda"), requires_grad=True)
                     self.task_weights["GAN"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["GAN"]).to("cuda"), requires_grad=False)
                 
-
+                # initialize generator optimizers
                 self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG.parameters(), list(self.task_weights.values())),
                                                     lr=opt.lr, betas=(opt.beta1, 0.999))
 #            elif self.opt.loss_weights and opt.adaptive:
@@ -270,7 +277,7 @@ class Pix2PixModel(BaseModel):
             self.optimizer_D = torch.optim.Adam(self.netD.parameters(),
                                                 lr=opt.lr, betas=(opt.beta1, 0.999))
 
-
+        """ network initialization finished """
         #self.netG.eval()
         print('---------- Networks initialized -------------')
         networks.print_network(self.netG)
@@ -278,6 +285,7 @@ class Pix2PixModel(BaseModel):
             networks.print_network(self.netD)
         print('-----------------------------------------------')
         
+        """ store network sturcture """
         if self.isTrain:
           if not os.path.exists(os.path.join(opt.checkpoints_dir, opt.name)):
               os.makedirs(os.path.join(opt.checkpoints_dir, opt.name))
@@ -295,7 +303,7 @@ class Pix2PixModel(BaseModel):
           f.write( str(self.netG) )
           f.close()
           
-
+    """  set inputs  """
     def set_input(self, input):
         self.input = []
         self.idict = input
@@ -321,7 +329,7 @@ class Pix2PixModel(BaseModel):
         if 'factor' in input:    
             self.strech = input['factor']
 
-
+    """  Generator forward  """
     def forward(self):
         self.real_A = Variable(self.input_A)
         
@@ -363,7 +371,8 @@ class Pix2PixModel(BaseModel):
             
             if 'factor' in input:    
                 self.strech = input['factor']
-
+                
+    """  Discriminator backward  """
     def backward_D(self):
         # Fake
         # stop backprop to the generator by detaching fake_B
@@ -382,6 +391,7 @@ class Pix2PixModel(BaseModel):
 
         self.loss_D.backward()
 
+    """  Generator backward  """
     def backward_G(self):
 
         """
@@ -460,6 +470,7 @@ class Pix2PixModel(BaseModel):
 
         self.loss_G.backward()
 
+    """  Optimization: gradient descent  """
     def optimize_parameters(self):
         self.forward()
 
@@ -471,6 +482,7 @@ class Pix2PixModel(BaseModel):
         self.backward_G()
         self.optimizer_G.step()
 
+    """  store losses  """
     def get_current_errors(self):
         
         d = OrderedDict([('G_GAN', self.loss_G_GAN.item()), #self.loss_G_GAN.data[0]
@@ -486,6 +498,7 @@ class Pix2PixModel(BaseModel):
             
         return d
 
+    """  store images  """
     def get_current_visuals(self):
         d = OrderedDict()
         
@@ -497,6 +510,7 @@ class Pix2PixModel(BaseModel):
         d['real_B'] = util.tensor2im(self.real_B.data)
         return d
 
+    """  save network (weights)  """
     def save(self, label):
         self.save_network(self.netG, 'G', label, self.gpu_ids)
         self.save_network(self.netD, 'D', label, self.gpu_ids)
@@ -505,6 +519,7 @@ class Pix2PixModel(BaseModel):
             save_path = os.path.join(self.save_dir, save_filename)
             torch.save(self.task_weights, save_path)
 
+    """  update learning rate  """
     def update_learning_rate(self):
         lrd = self.opt.lr / self.opt.niter_decay
         lr = self.old_lr - lrd
@@ -515,6 +530,7 @@ class Pix2PixModel(BaseModel):
         print('update learning rate: %f -> %f' % (self.old_lr, lr))
         self.old_lr = lr
 
+    """  store weights of Generator losses  """
     def get_current_LossWeights(self):
         
         return OrderedDict([('GAN', self.task_weights["GAN"].item()),

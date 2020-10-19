@@ -59,8 +59,8 @@ logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s', level=logl
 
 
 """  Load training dataset  """
-pdb.set_trace()
-dataset_train = XdibiasDSMLoader(opt, config, config["data"]["roi_train"]) ### data.xdibias_dataset.py: Q3,Q4,Q5,Q6
+#pdb.set_trace()
+dataset_train = XdibiasDSMLoader(opt, config, config["data"]["roi_train"]) ### data.xdibias_dataset.py: Q3,Q4,Q5,Q6,Q7
    
 train_loader = torch.utils.data.DataLoader(dataset_train,
                                            batch_size = opt.batchSize,
@@ -72,7 +72,7 @@ n_samples_train = len(dataset_train)
 logger.info('Got %d training images per epoch' % n_samples_train)
 
 """  Load validation dataset  """
-pdb.set_trace()
+#pdb.set_trace()
 dataset_val = XdibiasDSMLoader(opt, config, config["data"]["roi_val"])    
 
 val_loader = torch.utils.data.DataLoader(dataset_val,
@@ -85,10 +85,12 @@ val_loader = torch.utils.data.DataLoader(dataset_val,
 n_samples_val = len(dataset_val)
 logger.info('Got %d validation images' % n_samples_val)
 
-
 """  create model  """
-pdb.set_trace()                                               
-model = create_model(opt) # models.models.py  models.pix2pix_model.py
+pdb.set_trace()                                            
+model = create_model(opt) # models.models.py  models.pix2pix_model.py: Q8,....
+
+############################# stop here ###############################################
+"""  create visualizes  """
 visualizer = Visualizer(opt) # util.visualizer.py
 total_steps = 0
 
