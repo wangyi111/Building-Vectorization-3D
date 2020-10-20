@@ -48,7 +48,7 @@ class XdibiasDSMLoader(data.Dataset):
         if "Out" in self.config["data"]:
             self.Out = xdibias.Image(self.config["data"]["Out"])
             assert(self.DSM.XCellRes == self.Out.XCellRes)
-            assert(self.DSM.XCellRes == self.Out.XCellRes) ### Q7: YCellRes?
+            assert(self.DSM.XCellRes == self.Out.XCellRes) ### Q7: repeat???
             xdibias.geo.intersectRect(bbox, self.Out.boundingBox())
         else:
             self.Out = None
@@ -174,31 +174,31 @@ class XdibiasDSMLoader(data.Dataset):
         #pdb.set_trace()
         """  extract patch img from dataset  """        
         ## stereo dsm ##
-        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4: not using outliers?
+        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4: not using outliers?   input_dsm->[-1,1]
         #print "input_dsm", input_dsm.min(), input_dsm.max()
         input_dsm = Image.fromarray(input_dsm) # stereo dsm
         
         ## ground truth dsm ##
         if self.Out is not None:       
-            gt_model = self.getPatch(self.Out, i, j, norm=norm_params) # share stereo dsm's norm_param
+            gt_model = self.getPatch(self.Out, i, j, norm=norm_params) # Q8: share stereo dsm's norm_param?? WHy??  gt_dsm->not [-1,1]
             #print "gt_model", gt_model.min(), gt_model.max()
             gt_model = Image.fromarray(gt_model)
 
         ## ortho photo ##
         if self.Ortho is not None:
-            input_ortho = self.getPatch(self.Ortho, i, j, norm="intensity") # norm p2,p98 & [0,255]
+            input_ortho = self.getPatch(self.Ortho, i, j, norm="intensity") # norm p2,p98 & [-1,1]
             #print "input_ortho", input_ortho.min(), input_ortho.max()
             input_ortho = Image.fromarray(input_ortho)
 
         ## building mask ##    
         if self.MASK:
-            gt_mask = self.getPatch(self.MASK, i, j, norm=False)
+            gt_mask = self.getPatch(self.MASK, i, j, norm=False) # [0,255]
             gt_mask = Image.fromarray(gt_mask)
         
         ## Edges (new!) ##
         if self.Edges:
-            pdb.set_trace()
-            gt_edges = self.getPatch(self.Edges, i, j, norm=False)
+            #pdb.set_trace()
+            gt_edges = self.getPatch(self.Edges, i, j, norm=False) # [0,1] Q9: zero center or not?
             #gt_edges = Image.fromarray(gt_edges)
             
                 
@@ -225,7 +225,7 @@ class XdibiasDSMLoader(data.Dataset):
                 if self.Edges is not None:
                     gt_edges = cv2.flip(gt_edges,0) # new!    
                         
-        pdb.set_trace()
+        #pdb.set_trace()
         """  create return samples  """
         sample = {} # create return sample
            

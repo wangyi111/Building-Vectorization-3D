@@ -20,19 +20,25 @@ import pdb
 def tensor2im(image_tensor, imtype=np.uint8, spectral = False):
     image_numpy = image_tensor[0].cpu().float().numpy()
     #image_numpy = (np.transpose(image_numpy, (1, 2, 0)) + 1) / 2.0 * 255.0
-    image_numpy = np.transpose(image_numpy, (1, 2, 0))
+    #pdb.set_trace()
+    image_numpy = np.transpose(image_numpy, (1, 2, 0)) # (1,256,256) to (256,256,1)
     
     if spectral == False:
-        image_numpy = image_numpy.squeeze()
-        image_numpy = np.clip(image_numpy, -1, 1)
-        image_numpy = (image_numpy + 1)/2.0
-        cm = plt.get_cmap('viridis')
+        image_numpy = image_numpy.squeeze() # remove single-dimension arrays -> (256,256)
+        image_numpy = np.clip(image_numpy, -1, 1) # clip values to (-1,1)
+        image_numpy = (image_numpy + 1)/2.0 # ->(0,1)
+        cm = plt.get_cmap('viridis') # set colormap
         image_numpy = cm(image_numpy)
         
         image_numpy = image_numpy[:, :, :3]
 
         image_numpy = image_numpy * 255.0
         image_numpy = image_numpy.astype(imtype)
+        
+    if image_numpy.shape[2] == 2: # new!!
+        temp = np.zeros((image_numpy.shape[0],image_numpy.shape[1],1))
+        image_numpy = np.concatenate((image_numpy,temp),axis=2)
+        
     return image_numpy
     
 
@@ -54,6 +60,7 @@ def save_image(image_numpy, image_path):
     #print("Trying to save image", image_path)
     if image_numpy.shape[2] == 1:
         image_numpy = image_numpy[:,:,0]
+    #pdb.set_trace()
     image_pil = Image.fromarray(image_numpy)
     image_pil.save(image_path)
 

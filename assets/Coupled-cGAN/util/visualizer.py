@@ -12,40 +12,50 @@ import matplotlib.pyplot as plt
 import logging
 logger = logging.getLogger(__name__)
 
+"""  rescale image values  """
 def intensity_rescaling(image):
     out = np.zeros_like(image)
+    #pdb.set_trace()
     for i in range (0,image.shape[-1]):
-        out[:,:,i] = (image[:,:,i]-image[:,:,i].min())*255/(image[:,:,i].max()-image[:,:,i].min())
+        if image[:,:,i].min()-image[:,:,i].max() != 0: # new!!
+            out[:,:,i] = (image[:,:,i]-image[:,:,i].min())*255/(image[:,:,i].max()-image[:,:,i].min())
     out[out<0] = 0
     out[out>255] = 255
     return out.astype(np.uint8)
-        
+
+       
 class Visualizer():
+    """  initialize dirs to save visualization results  """
     def __init__(self, opt):
-        # self.opt = opt
-        self.display_id = opt.display_id
+        # self.opt = opt 
+        self.display_id = opt.display_id # window id of the web display
         self.use_html = opt.isTrain and not opt.no_html
         self.win_size = opt.display_winsize
         self.name = opt.name
         if self.display_id > 0:
             import visdom
-            self.vis = visdom.Visdom(port = opt.display_port)
-            self.display_single_pane_ncols = opt.display_single_pane_ncols
+            self.vis = visdom.Visdom(port = opt.display_port) # create visdom object (run visdom on port first)
+            self.display_single_pane_ncols = opt.display_single_pane_ncols # default: 0
 
         if self.use_html:
-            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
-            self.img_dir = os.path.join(self.web_dir, 'images')
+            self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web') # web dir
+            self.img_dir = os.path.join(self.web_dir, 'images') # images dir
             print('create web directory %s...' % self.web_dir)
             logger.info('Creating web directory at %s...' % self.web_dir)
             util.mkdirs([self.web_dir, self.img_dir])
-        self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
+        self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt') # loss_log dir
         with open(self.log_name, "a") as log_file:
             now = time.strftime("%c")
             log_file.write('================ Training Loss (%s) ================\n' % now)
 
+    """  diplay images  """
     # |visuals|: dictionary of images to display or save
     def display_current_results(self, visuals, epoch):
-        if self.display_id > 0: # show images in the browser
+        #pdb.set_trace()
+        """ show images in the browser """
+        if self.display_id > 0: 
+        
+            """ ??? """
             if self.display_single_pane_ncols > 0:
                 h, w = next(iter(visuals.values())).shape[:2]
                 table_css = """<style>
@@ -79,6 +89,7 @@ class Visualizer():
                 label_html = '<table>%s</table>' % label_html
                 self.vis.text(table_css + label_html, win = self.display_id + 2,
                               opts=dict(title=title + ' labels'))
+
             else:
                 idx = 1
                 for label, image_numpy in visuals.items():
@@ -95,11 +106,16 @@ class Visualizer():
                         self.vis.image(image_numpy.transpose([2,0,1]), opts=dict(title=label),
                                            win=self.display_id + idx)
                         idx += 1
-
+                        
+        """ save images to disk and html file """
         if self.use_html: # save images to a html file
+            # save images
+            #pdb.set_trace()
             for label, image_numpy in visuals.items():
                 img_path = os.path.join(self.img_dir, 'epoch%.3d_%s.png' % (epoch, label))
                 if label == "real_O":
+                    image_numpy = intensity_rescaling(image_numpy)
+                if label == "real_E": # new!!
                     image_numpy = intensity_rescaling(image_numpy)
                 util.save_image(image_numpy, img_path)
             # update website
@@ -118,8 +134,10 @@ class Visualizer():
                 webpage.add_images(ims, txts, links, width=self.win_size)
             webpage.save()
 
+    
     # errors: dictionary of error labels and values
     def plot_current_errors(self, epoch, counter_ratio, opt, errors):
+        #pdb.set_trace()
         if not hasattr(self, 'plot_data'):
             self.plot_data = {'X':[],'Y':[], 'legend':list(errors.keys())}
         #self.plot_data['X'].append(epoch + counter_ratio)
@@ -164,6 +182,7 @@ class Visualizer():
 
     # weights: dictionary of weight labels and values
     def plot_current_weights(self, epoch, counter_ratio, opt, weights):
+        #pdb.set_trace()
         if not hasattr(self, 'plot_weights'):
             self.plot_weights = {'X':[],'Y':[], 'legend':list(weights.keys())}
         self.plot_weights['X'].append(epoch - 1 + counter_ratio)
@@ -180,6 +199,7 @@ class Visualizer():
 
     # errors: same format as |errors| of plotCurrentErrors
     def print_current_errors(self, epoch, i, errors, t):
+        #pdb.set_trace()
         message = '(epoch: %d, iters: %d, time: %.3f) Losses: ' % (epoch, i, t)
         for k, v in errors.items():
             message += '%s: %.3f ' % (k, v)
@@ -190,6 +210,7 @@ class Visualizer():
 
     # errors: same format as |errors| of plotCurrentErrors
     def print_current_weights(self, epoch, i, errors, t):
+        #pdb.set_trace()
         message = '(epoch: %d, iters: %d, time: %.3f) Task Weights: ' % (epoch, i, t)
         for k, v in errors.items():
             message += '%s: %.3f ' % (k, v)

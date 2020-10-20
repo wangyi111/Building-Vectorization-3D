@@ -106,7 +106,7 @@ class Pix2PixModel(BaseModel):
         to_freeze = ["Coupled_UResNet", 'DeepLabv3_plus','Single_UResNet', "DeepLab"] ### Q10: usage??
         
         if opt.which_model_netG != "W_GAN": # default: Coupled_UResNet50
-            pdb.set_trace()
+            #pdb.set_trace()
             self.netG = networks.define_G(opt.input_nc, 
                                           opt.output_nc, 
                                           opt.ngf,
@@ -163,7 +163,7 @@ class Pix2PixModel(BaseModel):
             elif opt.which_model_netG not in list_of_networks:
                 self.netG.apply(weights_init) ### ????
             
-            """ Discriminator """    ### Q: only defined when isTrain=True????
+            """ Discriminator """    
             use_sigmoid = opt.no_lsgan
             self.netD = networks.define_D(opt.input_nc + opt.output_nc, opt.ndf,
                                           opt.which_model_netD,
@@ -326,6 +326,11 @@ class Pix2PixModel(BaseModel):
             self.input_M = self.Tensor(input_M.size()).copy_(input_M)
             self.input.append(input_M)
         
+        if 'Edges' in input: # new!
+            input_E = input['Edges']
+            self.input_E = self.Tensor(input_E.size()).copy_(input_E)
+            self.input.append(input_E)
+        
         if 'factor' in input:    
             self.strech = input['factor']
 
@@ -334,8 +339,10 @@ class Pix2PixModel(BaseModel):
         self.real_A = Variable(self.input_A)
         
         if "Ortho" in self.idict:
-         self.real_O = Variable(self.input_O)
-
+            self.real_O = Variable(self.input_O)
+        
+        if "Edges" in self.idict: # new!!
+            self.real_E = Variable(self.input_E)
                 
         for item in range(len(self.input)):
             self.input[item] = Variable(self.input[item]).cuda(self.gpu_ids[0])
@@ -500,12 +507,15 @@ class Pix2PixModel(BaseModel):
 
     """  store images  """
     def get_current_visuals(self):
+        #pdb.set_trace()
         d = OrderedDict()
         
         d['real_A'] = util.tensor2im(self.real_A.data)
 
         if "Ortho" in self.idict:
             d['real_O'] = util.tensor2im(self.real_O.data, spectral = True)
+        if "Edges" in self.idict: # new!!
+            d['real_E'] = util.tensor2im(self.real_E.data, spectral = True)
         d['fake_B'] = util.tensor2im(self.fake_B.data)
         d['real_B'] = util.tensor2im(self.real_B.data)
         return d
