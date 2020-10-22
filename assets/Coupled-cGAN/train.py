@@ -18,7 +18,8 @@ from tqdm import tqdm
 from pytorchtools import EarlyStopping
 
 import argparse
-
+from torch.utils.tensorboard import SummaryWriter
+import torchvision
 
 """  logger   """
 logger = logging.getLogger(__name__)
@@ -85,14 +86,11 @@ val_loader = torch.utils.data.DataLoader(dataset_val,
 n_samples_val = len(dataset_val)
 logger.info('Got %d validation images' % n_samples_val)
 
-"""  create model  """
-pdb.set_trace()                                            
+"""  create model  """                                            
 model = create_model(opt) # models.models.py  models.pix2pix_model.py: Q8,....
 
-############################# stop here ###############################################
 """  create visualizes  """
 visualizer = Visualizer(opt) # util.visualizer.py
-total_steps = 0
 
 """  validation metrics  """
 # set up validation metrics
@@ -106,14 +104,14 @@ val_result = np.inf
 early_stopping = EarlyStopping(patience=config["patience"], verbose=True)
 counter = 0
 
-#log_dir = os.path.join(cfg["logging"]["log_dir"], opt.name)
-#logger.info("Writing tensorboard log to %s", log_dir)
-#os.makedirs(log_dir, exist_ok=True)
-#tb_writer = SummaryWriter(log_dir)
+"""  tensorboard (new!)  """
+log_dir = os.path.join(config["logging"]["log_dir"], opt.name)
+logger.info("Writing tensorboard log to %s", log_dir)
+tb_writer = SummaryWriter(log_dir)
 
 """  start training  """
 logger.info("Starting training...")
-
+total_steps = 0
 for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
     logger.info("-------------------- Epoch " + str(epoch) + " --------------------")
     epoch_start_time = time.time()
@@ -126,31 +124,33 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
     ###################
     '''
 
-    for data in tqdm(train_loader, desc="Current Epoch"):
-
+    for data in tqdm(train_loader, desc="Current Epoch"): # iterate training data
+        
         iter_start_time = time.time()
         total_steps += opt.batchSize
         epoch_iter += opt.batchSize
         
-        ## input a batch data ##        
+        ## input a batch data ##
+        #pdb.set_trace()        
         model.set_input(data)
          
         ## training ##
         model.optimize_parameters() # Optimize
         
         ## visualization ##
+        # plot images        
         if total_steps % opt.display_freq == 0:
-        #if total_steps % (len(dataset_val)/opt.batchSize) == 0:
+            #pdb.set_trace()
             visualizer.display_current_results(model.get_current_visuals(), epoch)
-
+        # plot error/losses           
         if total_steps % opt.print_freq == 0:
+            #pdb.set_trace()            
             errors = model.get_current_errors()
             t = (time.time() - iter_start_time) / opt.batchSize
             visualizer.print_current_errors(epoch, epoch_iter, errors, t)
             if opt.display_id > 0:
                 visualizer.plot_current_errors(epoch, float(epoch_iter)/n_samples_train, opt, errors)
-
-        # plot task weights to visdom
+        # plot task weights
         if opt.loss_weights:
             if total_steps % opt.print_freq == 0:
                 LossWeights = model.get_current_LossWeights()
@@ -159,6 +159,42 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
                 visualizer.print_current_weights(epoch, epoch_iter, LossWeights, t)
                 if opt.display_id > 0:
                     visualizer.plot_current_weights(epoch, float(epoch_iter)/n_samples_train, opt, LossWeights)
+                    
+        ## tensorboard ##
+        if total_steps % opt.display_freq == 0:
+            pdb.set_trace()
+            #tb_writer.add_scalar(tag,scalar_value,global_step=None,walltime=None)
+            #tb_writer.add_scalars(tag,scalar_dict,global_step=None,walltime=None)
+            #tb_writer.add_image(tag,img_tensor,global_step=None,walltime=None,dataformats='CHW')
+            errors = model.get_current_errors()
+            tb_writer.add_scalars('losses',errors,global_step=total_steps,walltime=None)            
+            LossWeights = model.get_current_LossWeights()
+            tb_writer.add_scalars('loss_weights',LossWeights,global_step=total_steps,walltime=None)
+            
+            # add images seperately
+            images = model.get_current_visuals()
+            tb_writer.add_image('stereo_dsm',images['real_A'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('orthophoto',images['real_O'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('refined_dsm',images['fake_B'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('GroundTruth_dsm',images['real_B'],global_step=total_steps,walltime=None,dataformats='HWC')
+            #tb_writer.add_image('predicted_corepoints',images['fake_E'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('GroundTruth_corepoints',images['real_E'],global_step=total_steps,walltime=None,dataformats='HWC')
+            #tb_writer.add_image('predicted_instances',images['fake_I'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('GroundTruth_instances',images['real_I'],global_step=total_steps,walltime=None,dataformats='HWC')
+            
+            # add imags in a table
+            image_list = []
+            for label,img in images.items():
+                if img.shape[2]==1:
+                    img = np.concatenate((img,)*3,axis=-1) # [H,W,1] to [H,W,3]
+                img = np.transpose(img,(2,0,1)) # [C,H,W]
+                image_list.append(torch.FloatTensor(img))
+            #image_grid = torchvision.utils.make_grid(tensor,nrow=8,padding=2,normalize=False,range=None,scale_each=False,pad_value=0)
+            image_grid = torchvision.utils.make_grid(image_list)
+            tb_writer.add_image('images',image_grid,global_step=total_steps,walltime=None,dataformats='CHW')
+            
+        
+############################# stop here ############################################### 
                 
         '''
         ###########################    
@@ -216,7 +252,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
 #                early_stopping.save_checkpoint(val_result, model, total_steps, epoch)
 #                break
 
-            model.train()
+            model.train() # back to training
 
         best = val_result < best_metric           
             
@@ -276,3 +312,5 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
           (epoch, opt.niter + opt.niter_decay, time.time() - epoch_start_time))
     if epoch > opt.niter:
         model.update_learning_rate()
+tb_writer.flush()
+tb_writer.close()

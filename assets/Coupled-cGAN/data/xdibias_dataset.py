@@ -81,7 +81,13 @@ class XdibiasDSMLoader(data.Dataset):
             assert(self.DSM.XCellRes == self.Edges.XCellRes)
             xdibias.geo.intersectRect(bbox, self.Edges.boundingBox())
         
-        
+        """  load building instances (new!)  """
+        if "Instances" in self.config["data"]:
+            
+            self.Instances = xdibias.Image(self.config["data"]["Instances"])
+            assert(self.DSM.XCellRes == self.Instances.XCellRes)
+            assert(self.DSM.XCellRes == self.Instances.XCellRes)
+            xdibias.geo.intersectRect(bbox, self.Instances.boundingBox())        
         
         """  cut roi  """
         # crop to common intersection and check Resolution
@@ -95,6 +101,8 @@ class XdibiasDSMLoader(data.Dataset):
             self.MASK = self.MASK.getROIImage(bbox, gridtol=0.5)        
         if not self.Edges is None: 
             self.Edges = self.Edges.getROIImage(bbox, gridtol=0.5) # new!
+        if not self.Instances is None: 
+            self.Instances = self.Instances.getROIImage(bbox, gridtol=0.5) # new!        
                         
         # calculate number of training patches
         self.tilesPerRow = int(self.DSM.Columns / (self.opt.fineSize-self.opt.overlap)) # default: 30733/(256-0)=120
@@ -125,7 +133,7 @@ class XdibiasDSMLoader(data.Dataset):
                      'p98': str(self.p98)}
                  
             with open((os.path.join(expr_dir, "train_config.yaml")), 'w') as cf:
-                yaml.dump(d, cf, default_flow_style=False) ### Q3: save ortho only?
+                yaml.dump(d, cf, default_flow_style=False) ### Q3: save ortho only? ### d["p2"] = str(self.p2)
                 
         # Test phase    
         else:
@@ -174,13 +182,13 @@ class XdibiasDSMLoader(data.Dataset):
         #pdb.set_trace()
         """  extract patch img from dataset  """        
         ## stereo dsm ##
-        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4: not using outliers?   input_dsm->[-1,1]
+        input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4: not using outliers?   input_dsm->[-1,1] outlier simulation
         #print "input_dsm", input_dsm.min(), input_dsm.max()
         input_dsm = Image.fromarray(input_dsm) # stereo dsm
         
         ## ground truth dsm ##
         if self.Out is not None:       
-            gt_model = self.getPatch(self.Out, i, j, norm=norm_params) # Q8: share stereo dsm's norm_param?? WHy??  gt_dsm->not [-1,1]
+            gt_model = self.getPatch(self.Out, i, j, norm=norm_params) # Q8: share stereo dsm's norm_param?? WHy??  gt_dsm->not [-1,1]  to reconstruct height
             #print "gt_model", gt_model.min(), gt_model.max()
             gt_model = Image.fromarray(gt_model)
 
@@ -200,7 +208,12 @@ class XdibiasDSMLoader(data.Dataset):
             #pdb.set_trace()
             gt_edges = self.getPatch(self.Edges, i, j, norm=False) # [0,1] Q9: zero center or not?
             #gt_edges = Image.fromarray(gt_edges)
-            
+
+        ## Instances (new!) ##
+        if self.Instances:
+            #pdb.set_trace()
+            gt_instances = self.getPatch(self.Instances, i, j, norm=False) # [0,1] Q9: zero center or not?
+            #gt_edges = Image.fromarray(gt_edges)            
                 
         """  random flip  """    
         if self.opt.isTrain:    
@@ -214,6 +227,8 @@ class XdibiasDSMLoader(data.Dataset):
                     gt_mask = TF.hflip(gt_mask)
                 if self.Edges is not None:
                     gt_edges = cv2.flip(gt_edges,1) # new!
+                if self.Instances is not None:
+                    gt_instances = cv2.flip(gt_instances,1) # new!                
                            
             if random.random() < 0.5:            
                 input_dsm = TF.vflip(input_dsm)
@@ -224,7 +239,9 @@ class XdibiasDSMLoader(data.Dataset):
                     gt_mask = TF.vflip(gt_mask)
                 if self.Edges is not None:
                     gt_edges = cv2.flip(gt_edges,0) # new!    
-                        
+                if self.Instances is not None:
+                    gt_instances = cv2.flip(gt_instances,0) # new!
+                                            
         #pdb.set_trace()
         """  create return samples  """
         sample = {} # create return sample
@@ -236,7 +253,9 @@ class XdibiasDSMLoader(data.Dataset):
         if self.MASK is not None:
             sample["M"] = self.transform(gt_mask) # M: building mask
         if self.Edges is not None:
-            sample["Edges"] = self.transform(gt_edges) # Edges: building edges (new!)
+            sample["Edges"] = self.transform(gt_edges) # Edges: building edges (new!) check range [0,1]
+        if self.Instances is not None:
+            sample["Instances"] = self.transform(gt_instances) # Edges: building instances (new!)        
                 
         sample["factor"] = norm_params # factor: norm params of stero dsm
        

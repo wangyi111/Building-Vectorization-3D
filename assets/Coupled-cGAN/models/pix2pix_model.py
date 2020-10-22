@@ -330,6 +330,11 @@ class Pix2PixModel(BaseModel):
             input_E = input['Edges']
             self.input_E = self.Tensor(input_E.size()).copy_(input_E)
             self.input.append(input_E)
+
+        if 'Instances' in input: # new!
+            input_I = input['Instances']
+            self.input_I = self.Tensor(input_I.size()).copy_(input_I)
+            self.input.append(input_I)        
         
         if 'factor' in input:    
             self.strech = input['factor']
@@ -343,6 +348,9 @@ class Pix2PixModel(BaseModel):
         
         if "Edges" in self.idict: # new!!
             self.real_E = Variable(self.input_E)
+        
+        if "Instances" in self.idict: # new!!
+            self.real_I = Variable(self.input_I)        
                 
         for item in range(len(self.input)):
             self.input[item] = Variable(self.input[item]).cuda(self.gpu_ids[0])
@@ -516,6 +524,8 @@ class Pix2PixModel(BaseModel):
             d['real_O'] = util.tensor2im(self.real_O.data, spectral = True)
         if "Edges" in self.idict: # new!!
             d['real_E'] = util.tensor2im(self.real_E.data, spectral = True)
+        if "Instances" in self.idict: # new!!
+            d['real_I'] = util.tensor2im(self.real_I.data, spectral = True)        
         d['fake_B'] = util.tensor2im(self.fake_B.data)
         d['real_B'] = util.tensor2im(self.real_B.data)
         return d
