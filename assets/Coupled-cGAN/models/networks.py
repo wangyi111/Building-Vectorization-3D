@@ -162,7 +162,7 @@ class concatNet(nn.Module):
         return out
 
 """  Generator  """
-def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False, gpu_ids=[], pretrained = False, output_func="tanh", fusion = False):
+def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropout=False, gpu_ids=[], pretrained = False, output_func="tanh", fusion = False,task='dsm'):
     print input_nc, output_nc, ngf
     netG = None
     print gpu_ids
@@ -171,50 +171,57 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
     if use_gpu:
         assert(torch.cuda.is_available())
 
-    #pdb.set_trace()
-    if which_model_netG == 'unet_128':
-        netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids, output_func=output_func)
-    elif which_model_netG == 'unet_256':        
-        netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids, output_func=output_func)
-    elif which_model_netG == 'Coupled_unet256':
-        netG = CoupledGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids, output_func=output_func) 
+    if task == 'dsm_edges': ## new!!
+        netG = resnet.CoupledUNetupperResnet_2(backbone = "resnet50")
+    elif task == 'dsm_edges_polygons':
+        netG = resnet.CoupledUNetupperResnet(backbone = "resnet50")
+    elif task == 'dsm':
         
-    elif which_model_netG == 'DeepLab':
-        netG = DeepLab(num_classes=output_nc, backbone="xception")
-    elif which_model_netG == 'DeepLabv3_plus':
-        netG = DeepLabv3_plus(input_nc, output_nc, os=16, pretrained=True, _print=True)
-
-    elif which_model_netG == 'Single_UResNet':
-            netG = UResNet.UNetWithResnet50Encoder()      
-    elif which_model_netG == 'Coupled_UResNet':
-            netG = UResNet.CoupledUNetResnet() # my written 2-nd version, where the number of channels in decoder is smaller
-    elif which_model_netG == 'Coupled_UResNet18':
-        #netG = resnet.CoupledUNetlowerResnet(backbone = "resnet18")
-        netG = UResNet.CoupledUNetLowerResnet(backbone = "resnet18") # my written 2-nd version, where the number of channels in decoder is smaller
-    elif which_model_netG == 'Coupled_UResNet34':
-        #netG = resnet.CoupledUNetlowerResnet(backbone = "resnet34")
-        netG = UResNet.CoupledUNetLowerResnet(backbone = "resnet34") # my written 2-nd version, where the number of channels in decoder is smaller
-    elif which_model_netG == 'Coupled_UResNet50':
-        netG = resnet.CoupledUNetupperResnet(backbone = "resnet50") ## currently using! change generator architecture here!!!! (new!)
-    elif which_model_netG == 'Coupled_UResNet101':
-        netG = resnet.CoupledUNetupperResnet(backbone = "resnet101")
-    elif which_model_netG == 'Coupled_UResNet152':
-        netG = resnet.CoupledUNetupperResnet(backbone = "resnet152")
-
-    elif which_model_netG == 'Single_R2U_Net': 
-            netG = R2U_Net()        
-    elif which_model_netG == 'Coupled_R2U_Net': 
-            netG = Coupled_R2U_Net()
-            r2unet.init_weights(netG)
-
-
-    elif which_model_netG == 'R2AttU_Net': 
-            netG = R2AttU_Net()
-            r2unet.init_weights(netG) 
-
+        #pdb.set_trace()
+        if which_model_netG == 'unet_128':
+            netG = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids, output_func=output_func)
+        elif which_model_netG == 'unet_256':        
+            netG = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids, output_func=output_func)
+        elif which_model_netG == 'Coupled_unet256':
+            netG = CoupledGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout, gpu_ids=gpu_ids, output_func=output_func) 
+            
+        elif which_model_netG == 'DeepLab':
+            netG = DeepLab(num_classes=output_nc, backbone="xception")
+        elif which_model_netG == 'DeepLabv3_plus':
+            netG = DeepLabv3_plus(input_nc, output_nc, os=16, pretrained=True, _print=True)
+    
+        elif which_model_netG == 'Single_UResNet':
+                netG = UResNet.UNetWithResnet50Encoder()      
+        elif which_model_netG == 'Coupled_UResNet':
+                netG = UResNet.CoupledUNetResnet() # my written 2-nd version, where the number of channels in decoder is smaller
+        elif which_model_netG == 'Coupled_UResNet18':
+            #netG = resnet.CoupledUNetlowerResnet(backbone = "resnet18")
+            netG = UResNet.CoupledUNetLowerResnet(backbone = "resnet18") # my written 2-nd version, where the number of channels in decoder is smaller
+        elif which_model_netG == 'Coupled_UResNet34':
+            #netG = resnet.CoupledUNetlowerResnet(backbone = "resnet34")
+            netG = UResNet.CoupledUNetLowerResnet(backbone = "resnet34") # my written 2-nd version, where the number of channels in decoder is smaller
+        elif which_model_netG == 'Coupled_UResNet50':
+            netG = resnet.CoupledUNetupperResnet(backbone = "resnet50") ## currently using! change generator architecture here!!!! (new!)
+        elif which_model_netG == 'Coupled_UResNet101':
+            netG = resnet.CoupledUNetupperResnet(backbone = "resnet101")
+        elif which_model_netG == 'Coupled_UResNet152':
+            netG = resnet.CoupledUNetupperResnet(backbone = "resnet152")
+    
+        elif which_model_netG == 'Single_R2U_Net': 
+                netG = R2U_Net()        
+        elif which_model_netG == 'Coupled_R2U_Net': 
+                netG = Coupled_R2U_Net()
+                r2unet.init_weights(netG)
+    
+    
+        elif which_model_netG == 'R2AttU_Net': 
+                netG = R2AttU_Net()
+                r2unet.init_weights(netG) 
+    
+        else:
+            raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
     else:
-        raise NotImplementedError('Generator model name [%s] is not recognized' % which_model_netG)
-
+        raise NameError('task not defined, try "dsm", "dsm_edges" or "dsm_edges_polygons"')
 #    pdb.set_trace()    
 #    if which_model_netG not in ["Coupled_UResNet", "DeepLab", "DeepLabv3_plus",'Corentin_UNetResNet50']:
 #        netG.apply(weights_init)
@@ -232,6 +239,7 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
             
     return netG
 
+#############################################################################   stop here 10.23 21:34  ###############################################################################
 """  Discriminator  """
 def define_D(input_nc, ndf, which_model_netD,
              n_layers_D=3, norm='batch', use_sigmoid=False, gpu_ids=[]):

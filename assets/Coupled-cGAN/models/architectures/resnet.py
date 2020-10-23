@@ -119,7 +119,8 @@ class ResNet(nn.Module):
         self.layer4 = self._make_layer(block, 512, layers[3], stride=2)
         self.avgpool = nn.AvgPool2d(7)
         self.fc = nn.Linear(512 * block.expansion, num_classes)
-
+        #pdb.set_trace()
+        # initialize weights
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
@@ -136,7 +137,7 @@ class ResNet(nn.Module):
                           kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes * block.expansion),
             )
-
+        #pdb.set_trace()
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample))
         self.inplanes = planes * block.expansion
@@ -150,13 +151,14 @@ class ResNet(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
         x = self.maxpool(x)
-
+        
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-
+        
         x = self.avgpool(x)
+        #pdb.set_trace()
         x = x.view(x.size(0), -1)
         x = self.fc(x)
 
@@ -500,7 +502,7 @@ class CoupledUNetupperResnet(nn.Module):
                 dsm_down_blocks.append(bottleneck)
         self.dsm_down_blocks = nn.ModuleList(dsm_down_blocks)
         
-        ## IMG Branch        
+        ########## IMG Branch ################       
         self.img_input_conv = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3,
                                bias=False)
         
@@ -561,23 +563,23 @@ class CoupledUNetupperResnet(nn.Module):
     
         ####################  DSM Branch  ###############################
         dsm_pre_pools = dict()
-        dsm_pre_pools["dsm_layer_0"] = input[0]
+        dsm_pre_pools["dsm_layer_0"] = input[0] # (B,1,256,256)
 
         dsm = self.dsm_input_conv(input[0])
         dsm = self.dsm_input_block(dsm)
         dsm_pre_pools["dsm_layer_1"] = dsm
-        dsm = self.dsm_input_pool(dsm)
+        dsm = self.dsm_input_pool(dsm) 
 
         
         for i, block in enumerate(self.dsm_down_blocks, 2):
             dsm = block(dsm)
             if i == (CoupledUNetupperResnet.DEPTH - 1):
                 continue
-            dsm_pre_pools["dsm_layer_{0}".format(str(i))] = dsm
+            dsm_pre_pools["dsm_layer_{0}".format(str(i))] = dsm # (B,2048,8,8)
 
         ####################  IMG Branch  ###############################
         img_pre_pools = dict()
-        img_pre_pools["img_layer_0"] = input[1]
+        img_pre_pools["img_layer_0"] = input[1] # (B,1,256,256)
 
         img = self.img_input_conv(input[1])
         img = self.img_input_block(img)
@@ -588,7 +590,7 @@ class CoupledUNetupperResnet(nn.Module):
             img = block(img)
             if i == (CoupledUNetupperResnet.DEPTH - 1):
                 continue
-            img_pre_pools["img_layer_{0}".format(str(i))] = img
+            img_pre_pools["img_layer_{0}".format(str(i))] = img # (B,2048,8,8)
             
             
         #########  Reduce size of skip connections #####################         
@@ -603,8 +605,8 @@ class CoupledUNetupperResnet(nn.Module):
         
         ########################  UPSAMPLING ###########################
         
-        fusion = self.prebridge(torch.cat((dsm,img), 1))   
-        x = self.bridge(fusion)
+        fusion = self.prebridge(torch.cat((dsm,img), 1)) # (B,2048,8,8)  
+        x = self.bridge(fusion) # (B,2048,8,8)
 
         
         for i, block in enumerate(self.up_blocks, 1):
@@ -644,6 +646,193 @@ class CoupledUNetupperResnet(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_() 
+
+
+"""  DSM + Edges  """
+class CoupledUNetupperResnet_2(nn.Module): ## new!
+    DEPTH = 6
+
+    def __init__(self, n_classes=1, m_classes=2, backbone = "resnet50"):
+        super(CoupledUNetupperResnet, self).__init__()
+        
+        if backbone == "resnet50":
+            resnet = resnet50(pretrained=False)
+        elif backbone == "resnet101":
+            resnet = resnet101(pretrained=False)
+        elif backbone == "resnet152":
+            resnet = resnet152(pretrained=False)
+        
+        dsm_down_blocks = []
+        img_down_blocks = []
+        
+        up_blocks = []
+        
+        ################# DSM Branch #############################################
+        self.dsm_input_conv = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        
+        # if input image has 1 channel
+        self.dsm_input_block = nn.Sequential(*list(resnet.children()))[1:3]
+        
+        #self.input_block = nn.Sequential(*list(resnet.children()))[:3]
+        
+        self.dsm_input_pool = list(resnet.children())[3]
+        for bottleneck in list(resnet.children()):
+            if isinstance(bottleneck, nn.Sequential):
+                dsm_down_blocks.append(bottleneck)
+        self.dsm_down_blocks = nn.ModuleList(dsm_down_blocks)
+        
+        ########## IMG Branch ################       
+        self.img_input_conv = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3,
+                               bias=False)
+        
+        # if input image has 1 channel
+        self.img_input_block = nn.Sequential(*list(resnet.children()))[1:3]
+        
+        #self.input_block = nn.Sequential(*list(resnet.children()))[:3]
+        
+        self.img_input_pool = list(resnet.children())[3]
+        for bottleneck in list(resnet.children()):
+            if isinstance(bottleneck, nn.Sequential):
+                img_down_blocks.append(bottleneck)
+        self.img_down_blocks = nn.ModuleList(img_down_blocks)
+
+
+        ################# Resize Skip connections ###############################################
+        
+        self.downsize_pools = nn.ModuleList( [nn.Sequential(nn.Conv2d(128, 64, kernel_size=1, stride=1, bias=False),
+                                                               nn.BatchNorm2d(64)),
+                                              nn.Sequential(nn.Conv2d(512, 256, kernel_size=1, stride=1, bias=False),
+                                                               nn.BatchNorm2d(256)), 
+                                              nn.Sequential(nn.Conv2d(1024, 512, kernel_size=1, stride=1, bias=False),
+                                                               nn.BatchNorm2d(512) ),
+                                              nn.Sequential(nn.Conv2d(2048, 1024, kernel_size=1, stride=1, bias=False),
+                                                               nn.BatchNorm2d(1024) ) ])
+                                                                                                                 
+                                                                                                                            
+        ################# DECODER ###############################################
+        self.prebridge = nn.Conv2d(4096, 2048, kernel_size=1, stride=1)
+        self.bridge = Bridge(2048, 2048)
+        
+        up_blocks.append(UpBlockForUNetWithResNet(2048, 1024))
+        up_blocks.append(UpBlockForUNetWithResNet(1024, 512))
+        up_blocks.append(UpBlockForUNetWithResNet(512, 256))
+        up_blocks.append(UpBlockForUNetWithResNet(in_channels=128 + 64, out_channels=128,
+                                                    up_conv_in_channels=256, up_conv_out_channels=128))
+        up_blocks.append(UpBlockForUNetWithResNet(in_channels=64 + 2, out_channels=64,
+                                                    up_conv_in_channels=128, up_conv_out_channels=64))
+                                                    
+        self.up_blocks = nn.ModuleList(up_blocks)
+
+        self.out_dsm = nn.Conv2d(64, n_classes, kernel_size=1, stride=1)        
+        self.tanh = nn.Tanh()
+        
+        self.out_edges = nn.Conv2d(64, m_classes, kernel_size=1, stride=1)
+        self.softmax = nn.Softmax()
+        
+        self.__init_weight()
+
+#    @staticmethod
+#    def initialize(layer):
+#        firstlayer_weight = nn.Sequential(*list(resnet.children()))[0].weight
+#        onechannel_weight = firstlayer_weight[:,1,:,:].unsqueeze_(1)
+#        layer.weight.data.copy_(onechannel_weight)
+
+        
+                
+    def forward(self, *input):
+        #pdb.set_trace()
+    
+        ####################  DSM Branch  ###############################
+        dsm_pre_pools = dict()
+        dsm_pre_pools["dsm_layer_0"] = input[0] # (B,1,256,256)
+
+        dsm = self.dsm_input_conv(input[0])
+        dsm = self.dsm_input_block(dsm)
+        dsm_pre_pools["dsm_layer_1"] = dsm
+        dsm = self.dsm_input_pool(dsm) 
+
+        
+        for i, block in enumerate(self.dsm_down_blocks, 2):
+            dsm = block(dsm)
+            if i == (CoupledUNetupperResnet.DEPTH - 1):
+                continue
+            dsm_pre_pools["dsm_layer_{0}".format(str(i))] = dsm # (B,2048,8,8)
+
+        ####################  IMG Branch  ###############################
+        img_pre_pools = dict()
+        img_pre_pools["img_layer_0"] = input[1] # (B,1,256,256)
+
+        img = self.img_input_conv(input[1])
+        img = self.img_input_block(img)
+        img_pre_pools["img_layer_1"] = img
+        img = self.img_input_pool(img)
+
+        for i, block in enumerate(self.img_down_blocks, 2):
+            img = block(img)
+            if i == (CoupledUNetupperResnet.DEPTH - 1):
+                continue
+            img_pre_pools["img_layer_{0}".format(str(i))] = img # (B,2048,8,8)
+            
+            
+        #########  Reduce size of skip connections #####################         
+        
+        downsizepools = dict()
+
+        for pool in range(1, len(img_pre_pools)):
+            key = "layer_{0}".format(str(pool))
+            downsizepools[key] = self.downsize_pools[pool-1]
+        
+            
+        
+        ########################  UPSAMPLING ###########################
+        
+        fusion = self.prebridge(torch.cat((dsm,img), 1)) # (B,2048,8,8)  
+        x = self.bridge(fusion) # (B,2048,8,8)
+
+        
+        for i, block in enumerate(self.up_blocks, 1):
+            dsm_key = "dsm_layer_{0}".format(str(CoupledUNetupperResnet.DEPTH - 1 - i))
+            img_key = "img_layer_{0}".format(str(CoupledUNetupperResnet.DEPTH - 1 - i))
+            key = "layer_{0}".format(str(CoupledUNetupperResnet.DEPTH - 1 - i))
+    
+            dsm_pre_pool = dsm_pre_pools[dsm_key]
+            img_pre_pool = img_pre_pools[img_key]
+
+            if key in downsizepools.keys():
+                x = block(x, downsizepools[key](torch.cat((dsm_pre_pool,img_pre_pool),1)))
+            else:
+                x = block(x, torch.cat((dsm_pre_pool,img_pre_pool),1))
+            
+            del dsm_pre_pool, img_pre_pool
+
+        x1 = self.out_dsm(x)
+        x1 = self.tanh(x1)
+        
+        x2 = self.out_edges(x)
+        x2 = self.softmax(x2)
+
+        del dsm_pre_pools, img_pre_pools  
+        
+        return x1,x2
+
+    def freeze_bn(self):
+        for m in self.modules():
+            if isinstance(m, nn.BatchNorm2d):
+                m.eval()
+
+    def __init_weight(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                # n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                # m.weight.data.normal_(0, math.sqrt(2. / n))
+                torch.nn.init.kaiming_normal_(m.weight)
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_() 
+
+
+
                 
 #model = CoupledUNetupperResnet(backbone="resnet152").cuda()
 #print model

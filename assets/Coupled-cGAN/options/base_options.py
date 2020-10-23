@@ -44,6 +44,7 @@ class BaseOptions():
         self.parser.add_argument('--backend', type=str, default='resnet34', help='Feature extractor for PSPNet')
 	self.parser.add_argument('--log_lvl', type=str, default='info', help='logging level. Options: debug, info, error, critical')
         self.parser.add_argument('--loss_weights', type=bool, default=False, help='train the network with automatically adjusted weighting parameters or manually')
+        self.parser.add_argument('--task', type=str, default='dsm', help='learning tasks: dsm or dsm_edges or dsm_edges_polygons') ## new!!
         self.initialized = True
 
     def parse(self):

@@ -48,7 +48,7 @@ class XdibiasDSMLoader(data.Dataset):
         if "Out" in self.config["data"]:
             self.Out = xdibias.Image(self.config["data"]["Out"])
             assert(self.DSM.XCellRes == self.Out.XCellRes)
-            assert(self.DSM.XCellRes == self.Out.XCellRes) ### Q7: repeat???
+            assert(self.DSM.YCellRes == self.Out.YCellRes) 
             xdibias.geo.intersectRect(bbox, self.Out.boundingBox())
         else:
             self.Out = None
@@ -58,7 +58,7 @@ class XdibiasDSMLoader(data.Dataset):
             # open ortho image and use that as second channel
             self.Ortho = xdibias.Image(self.config["data"]["Ortho"])
             assert(self.DSM.XCellRes == self.Ortho.XCellRes)
-            assert(self.DSM.XCellRes == self.Ortho.XCellRes)
+            assert(self.DSM.YCellRes == self.Ortho.YCellRes)
             xdibias.geo.intersectRect(bbox, self.Ortho.boundingBox())
         else:
             self.Ortho = None
@@ -68,7 +68,7 @@ class XdibiasDSMLoader(data.Dataset):
             # open mask image and use that as output for surface normals
             self.MASK = xdibias.Image(self.config["data"]["MASK"])
             assert(self.DSM.XCellRes == self.MASK.XCellRes)
-            assert(self.DSM.XCellRes == self.MASK.XCellRes)
+            assert(self.DSM.YCellRes == self.MASK.YCellRes)
             xdibias.geo.intersectRect(bbox, self.MASK.boundingBox())
         else:
             self.MASK = None
@@ -78,7 +78,7 @@ class XdibiasDSMLoader(data.Dataset):
             # open edges image and use that as ground truth for core_points prediction
             self.Edges = xdibias.Image(self.config["data"]["Edges"])
             assert(self.DSM.XCellRes == self.Edges.XCellRes)
-            assert(self.DSM.XCellRes == self.Edges.XCellRes)
+            assert(self.DSM.YCellRes == self.Edges.YCellRes)
             xdibias.geo.intersectRect(bbox, self.Edges.boundingBox())
         
         """  load building instances (new!)  """
@@ -86,7 +86,7 @@ class XdibiasDSMLoader(data.Dataset):
             
             self.Instances = xdibias.Image(self.config["data"]["Instances"])
             assert(self.DSM.XCellRes == self.Instances.XCellRes)
-            assert(self.DSM.XCellRes == self.Instances.XCellRes)
+            assert(self.DSM.YCellRes == self.Instances.YCellRes)
             xdibias.geo.intersectRect(bbox, self.Instances.boundingBox())        
         
         """  cut roi  """

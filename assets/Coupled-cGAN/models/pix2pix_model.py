@@ -87,7 +87,7 @@ class Pix2PixModel(BaseModel):
     
         BaseModel.initialize(self, opt) # opt, gpu_ids, isTrain, Tensor, save_dir
         #pdb.set_trace()
-        self.isTrain = opt.isTrain ### Q9: repeat??                           
+        #self.isTrain = opt.isTrain ### Q9: repeat??                           
         self.input = {}
                    
         if self.isTrain:
@@ -106,7 +106,7 @@ class Pix2PixModel(BaseModel):
         to_freeze = ["Coupled_UResNet", 'DeepLabv3_plus','Single_UResNet', "DeepLab"] ### Q10: usage??
         
         if opt.which_model_netG != "W_GAN": # default: Coupled_UResNet50
-            #pdb.set_trace()
+            pdb.set_trace()
             self.netG = networks.define_G(opt.input_nc, 
                                           opt.output_nc, 
                                           opt.ngf,
@@ -116,7 +116,8 @@ class Pix2PixModel(BaseModel):
                                           self.gpu_ids, 
                                           pretrained,  
                                           opt.output_func, 
-                                          opt.fusion)
+                                          opt.fusion,
+                                          opt.task)  ## new!
                                                                                   
         else:    
             #opt.output_nc = 64
@@ -129,7 +130,8 @@ class Pix2PixModel(BaseModel):
                                           self.gpu_ids, 
                                           pretrained,  
                                           opt.output_func, 
-                                          opt.fusion)
+                                          opt.fusion,
+                                          opt.task)
             
             netG2 = networks.define_G(opt.input_nc, 
                                           opt.output_nc, 
@@ -140,7 +142,8 @@ class Pix2PixModel(BaseModel):
                                           self.gpu_ids, 
                                           pretrained,  
                                           opt.output_func, 
-                                          opt.fusion)
+                                          opt.fusion,
+                                          opt.task)
 
                                           
             print "number of self.netG1 param: ", len(list(netG1.parameters()))       

@@ -25,3 +25,4 @@ CUDA_VISIBLE_DEVICES=0 PYTHONHASHSEED=0 python train.py \
 --save_epoch_freq 5 \
 --loss_weights True \
 --lambda_SN 10.0 \
+--task dsm_edges \

@@ -38,11 +38,9 @@ SEED = 123
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-torch.manual_seed(SEED) ### Q1: set twice?
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.set_num_threads(1)
-np.random.seed(SEED) ### Q2: set twice?
 
 """  define and parse arguments  """
 optparse = TrainOptions() ## from options.train_options import TrainOptions
@@ -86,8 +84,9 @@ val_loader = torch.utils.data.DataLoader(dataset_val,
 n_samples_val = len(dataset_val)
 logger.info('Got %d validation images' % n_samples_val)
 
-"""  create model  """                                            
-model = create_model(opt) # models.models.py  models.pix2pix_model.py: Q8,....
+"""  create model  """
+pdb.set_trace()                                            
+model = create_model(opt) # models.models.py -> models.pix2pix_model.py: Q8,....
 
 """  create visualizes  """
 visualizer = Visualizer(opt) # util.visualizer.py
@@ -135,6 +134,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
         model.set_input(data)
          
         ## training ##
+        pdb.set_trace()
         model.optimize_parameters() # Optimize
         
         ## visualization ##
@@ -162,7 +162,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
                     
         ## tensorboard ##
         if total_steps % opt.display_freq == 0:
-            pdb.set_trace()
+            #pdb.set_trace()
             #tb_writer.add_scalar(tag,scalar_value,global_step=None,walltime=None)
             #tb_writer.add_scalars(tag,scalar_dict,global_step=None,walltime=None)
             #tb_writer.add_image(tag,img_tensor,global_step=None,walltime=None,dataformats='CHW')
