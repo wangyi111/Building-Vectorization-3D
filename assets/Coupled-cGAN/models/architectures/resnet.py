@@ -653,7 +653,7 @@ class CoupledUNetupperResnet_2(nn.Module): ## new!
     DEPTH = 6
 
     def __init__(self, n_classes=1, m_classes=2, backbone = "resnet50"):
-        super(CoupledUNetupperResnet, self).__init__()
+        super(CoupledUNetupperResnet_2, self).__init__()
         
         if backbone == "resnet50":
             resnet = resnet50(pretrained=False)

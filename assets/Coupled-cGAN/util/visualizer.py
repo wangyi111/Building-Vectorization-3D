@@ -118,8 +118,13 @@ class Visualizer():
                     image_numpy = intensity_rescaling(image_numpy)
                 if label == "real_E": # new!!
                     image_numpy = intensity_rescaling(image_numpy)
+                if label == "pred_E":
+                    image_numpy = intensity_rescaling(image_numpy)                    
                 if label == "real_I": # new!!
-                    image_numpy = intensity_rescaling(image_numpy)                
+                    image_numpy = intensity_rescaling(image_numpy)
+                if label == "pred_P":
+                    image_numpy = intensity_rescaling(image_numpy)
+                                
                 util.save_image(image_numpy, img_path)
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, reflesh=1)
@@ -154,7 +159,7 @@ class Visualizer():
                 'legend': self.plot_data['legend'],
                 'xlabel': 'epoch',
                 'ylabel': 'loss'},
-            win=self.display_id+7)
+            win=self.display_id+9)
             
 #    # errors: dictionary of error labels and values
 #    def plot_current_weights(self, epoch, counter_ratio, opt, errors):
@@ -198,7 +203,7 @@ class Visualizer():
                 'legend': self.plot_weights['legend'],
                 'xlabel': 'epoch',
                 'ylabel': 'weights s = log(sigma^2)'},
-            win=self.display_id+8)
+            win=self.display_id+10)
 
     # errors: same format as |errors| of plotCurrentErrors
     def print_current_errors(self, epoch, i, errors, t):

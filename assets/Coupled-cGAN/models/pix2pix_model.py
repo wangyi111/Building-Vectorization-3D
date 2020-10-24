@@ -106,7 +106,7 @@ class Pix2PixModel(BaseModel):
         to_freeze = ["Coupled_UResNet", 'DeepLabv3_plus','Single_UResNet', "DeepLab"] ### Q10: usage??
         
         if opt.which_model_netG != "W_GAN": # default: Coupled_UResNet50
-            pdb.set_trace()
+            #pdb.set_trace()
             self.netG = networks.define_G(opt.input_nc, 
                                           opt.output_nc, 
                                           opt.ngf,
@@ -218,6 +218,14 @@ class Pix2PixModel(BaseModel):
                     self.criterionSN = FullNormalLoss() 
                 else:
                     self.criterionSN = networks.BuidingSurfaceNormalLoss(tensor=self.Tensor)
+            
+            # new!!
+            if self.opt.task == 'dsm_edges':
+                self.criterionEdges = torch.nn.CrossEntropyLoss()
+                
+            if self.opt.task == 'dsm_edges_polygons':
+                self.criterionEdges = torch.nn.CrossEntropyLoss()
+                self.criterionPolygons = torch.nn.CrossEntropyLoss()
                 
             """ weights of the losses & optimizers """
             if self.opt.loss_weights:
@@ -225,22 +233,36 @@ class Pix2PixModel(BaseModel):
                 if not opt.continue_train:
                     # set up losses learning weights
                     self.task_weights = {}
-                    
                     # weighting parameter
-                    self.L1 = torch.nn.Parameter(torch.as_tensor(np.log(0.33 ** 2)).to("cuda"), requires_grad=True)
-                    self.SN = torch.nn.Parameter(torch.as_tensor(np.log(0.33 ** 2)).to("cuda"), requires_grad=True)
-                    self.GAN = torch.nn.Parameter(torch.as_tensor(np.log(0.33 ** 2)).to("cuda"), requires_grad=False)
-
-#                    self.L1 = torch.nn.Parameter(torch.as_tensor(np.log(1000 ** 2)).to("cuda"), requires_grad=True)
-#                    self.SN = torch.nn.Parameter(torch.as_tensor(np.log(10 ** 2)).to("cuda"), requires_grad=True)
-#                    self.GAN = torch.nn.Parameter(torch.as_tensor(np.log(2 ** 2)).to("cuda"), requires_grad=False)
+                    # new!!
+                    init_w = 0.33
+                    if self.opt.task == 'dsm_edges':
+                        init_w = 0.25
+                        self.LE = torch.nn.Parameter(torch.as_tensor(np.log(init_w**2)).to("cuda"),requires_grad=True)
+                    elif self.opt.task == 'dsm_edges_polygons':
+                        init_w = 0.2
+                        self.LE = torch.nn.Parameter(torch.as_tensor(np.log(init_w**2)).to("cuda"),requires_grad=True)
+                        self.LP = torch.nn.Parameter(torch.as_tensor(np.log(init_w**2)).to("cuda"),requires_grad=True)
                     
-                    self.task_weights = {"L1": self.L1, "SN": self.SN, "GAN": self.GAN} 
+                    self.L1 = torch.nn.Parameter(torch.as_tensor(np.log(init_w ** 2)).to("cuda"), requires_grad=True)
+                    self.SN = torch.nn.Parameter(torch.as_tensor(np.log(init_w ** 2)).to("cuda"), requires_grad=True)
+                    self.GAN = torch.nn.Parameter(torch.as_tensor(np.log(init_w ** 2)).to("cuda"), requires_grad=False)
+                        
+                    if self.opt.task == 'dsm':
+                        self.task_weights = {"L1": self.L1, "SN": self.SN, "GAN": self.GAN}
+                    elif self.opt.task == 'dsm_edges':
+                        self.task_weights = {"L1": self.L1, "SN": self.SN, "GAN": self.GAN, "LE": self.LE}
+                    elif self.opt.task == 'dsm_edges_polygons':
+                        self.task_weights = {"L1": self.L1, "SN": self.SN, "GAN": self.GAN, "LE": self.LE, "LP": self.LP}
                     
                 else:
                     self.task_weights["L1"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["L1"]).to("cuda"), requires_grad=True)
                     self.task_weights["SN"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["SN"]).to("cuda"), requires_grad=True)
                     self.task_weights["GAN"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["GAN"]).to("cuda"), requires_grad=False)
+                    if self.opt.task == 'dsm_edges':
+                        self.task_weights["LE"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["LE"]).to("cuda"), requires_grad=False)
+                    if self.opt.task == 'dsm_edges_polygons':
+                        self.task_weights["LP"] = torch.nn.Parameter(torch.as_tensor(self.task_weights["LP"]).to("cuda"), requires_grad=False)
                 
                 # initialize generator optimizers
                 self.optimizer_G = torch.optim.Adam(itertools.chain(self.netG.parameters(), list(self.task_weights.values())),
@@ -359,7 +381,14 @@ class Pix2PixModel(BaseModel):
             self.input[item] = Variable(self.input[item]).cuda(self.gpu_ids[0])
                    
         #self.fake_B = self.netG.forward(self.real_A, self.real_O)
-        self.fake_B = self.netG.forward(*self.input)
+        # new!!
+        if self.opt.task == 'dsm':
+            self.fake_B = self.netG.forward(*self.input)
+        elif self.opt.task == 'dsm_edges':
+            #pdb.set_trace()
+            self.fake_B, self.pred_E = self.netG.forward(*self.input)
+        elif self.opt.task == 'dsm_edges_polygons':
+            raise NotImplementedError('This task is not ready!')
         self.real_B = Variable(self.input_B)
 
     # no backprop gradients
@@ -409,6 +438,7 @@ class Pix2PixModel(BaseModel):
 
         self.loss_D.backward()
 
+####################################################################### stop here #################################################################################################
     """  Generator backward  """
     def backward_G(self):
 
@@ -444,6 +474,15 @@ class Pix2PixModel(BaseModel):
                 self.aux_loss = self.criterionSN(self.fake_B, self.real_B, self.input_M, self.strech)
                 #self.aux_loss = self.criterionSN(self.fake_B, self.real_B)
                 task_losses["SN"] = self.aux_loss
+            ## new!
+            if self.opt.task == 'dsm_edges':
+                #pdb.set_trace()
+                
+                target_E = self.input_E.new_zeros(self.input_E[:,0,:,:].shape)
+                self.loss_E = self.criterionEdges(self.pred_E,target_E.long()) # input_E should have shape [B,256,256] value from [0,1,2]
+                task_losses["LE"] = self.loss_E
+            elif self.opt.task == 'dsm_edges_polygons':
+                raise NotImplementedError('This task is not ready!')
                 
             # compute multi-task loss
             self.loss_G = 0
@@ -462,7 +501,10 @@ class Pix2PixModel(BaseModel):
                 
                     ## Add GAN loss
                     self.loss_G += loss * self.task_weights["GAN"]
-                    
+                ## new!!
+                elif loss_fn in ["LE"]:
+                    self.loss_G += loss * self.task_weights["LE"]   
+                     
                 else:
                     logger.error("Weighting function for %s not implemented!",
                                  type(task_losses[loss_fn]))
@@ -478,13 +520,18 @@ class Pix2PixModel(BaseModel):
             # Second, G(A) = B
             self.loss_G_L1 = self.criterionL1(self.fake_B, self.real_B)* self.opt.lambda_A #Original
             
+            self.loss_G_SN = 0
             if self.opt.lambda_SN !=0.0: 
                 #Third, Surface Normal
                 self.aux_loss = self.criterionSN(self.fake_B, self.real_B, self.input_M, self.strech)*self.opt.lambda_SN
-                self.loss_G += self.aux_loss 
-
+                self.loss_G_SN += self.aux_loss 
+            ## new!
+            self.loss_G_E = 0
+            if self.opt.task == 'dsm_edges':
+                self.loss_E = self.crirerionEdges(self.pred_E,self.input_E)
+                self.loss_G_E += self.loss_E
             
-            self.loss_G = self.loss_G_GAN + self.loss_G_L1 #Original
+            self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_SN + self.loss_G_E #Original
 
         self.loss_G.backward()
 
@@ -513,6 +560,12 @@ class Pix2PixModel(BaseModel):
             loss = self.aux_loss.item()
             name = 'loss_SN'
             d.update({name:loss})
+        
+        ## new!
+        if self.opt.task == 'dsm_edges':
+            loss_E = self.loss_E.item()
+            name = 'loss_E'
+            d.update({name:loss_E})
             
         return d
 
@@ -531,6 +584,11 @@ class Pix2PixModel(BaseModel):
             d['real_I'] = util.tensor2im(self.real_I.data, spectral = True)        
         d['fake_B'] = util.tensor2im(self.fake_B.data)
         d['real_B'] = util.tensor2im(self.real_B.data)
+        # new!!
+        #pdb.set_trace()
+        if self.opt.task == 'dsm_edges':
+            d['pred_E'] = util.tensor2im(self.pred_E.data, spectral = True)
+            
         return d
 
     """  save network (weights)  """
@@ -555,8 +613,11 @@ class Pix2PixModel(BaseModel):
 
     """  store weights of Generator losses  """
     def get_current_LossWeights(self):
-        
-        return OrderedDict([('GAN', self.task_weights["GAN"].item()),
+        wd = OrderedDict([('GAN', self.task_weights["GAN"].item()),
                             ('L1', self.task_weights["L1"].item()),
                             ('SN', self.task_weights["SN"].item())
                             ])
+        if self.task_weights["LE"]:
+            wd["LE"] = self.task_weights["LE"].item()
+            
+        return wd

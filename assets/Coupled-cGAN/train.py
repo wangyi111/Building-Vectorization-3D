@@ -85,7 +85,7 @@ n_samples_val = len(dataset_val)
 logger.info('Got %d validation images' % n_samples_val)
 
 """  create model  """
-pdb.set_trace()                                            
+#pdb.set_trace()                                            
 model = create_model(opt) # models.models.py -> models.pix2pix_model.py: Q8,....
 
 """  create visualizes  """
@@ -134,7 +134,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
         model.set_input(data)
          
         ## training ##
-        pdb.set_trace()
+        #pdb.set_trace()
         model.optimize_parameters() # Optimize
         
         ## visualization ##
@@ -177,7 +177,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             tb_writer.add_image('orthophoto',images['real_O'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('refined_dsm',images['fake_B'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('GroundTruth_dsm',images['real_B'],global_step=total_steps,walltime=None,dataformats='HWC')
-            #tb_writer.add_image('predicted_corepoints',images['fake_E'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('predicted_corepoints',images['pred_E'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('GroundTruth_corepoints',images['real_E'],global_step=total_steps,walltime=None,dataformats='HWC')
             #tb_writer.add_image('predicted_instances',images['fake_I'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('GroundTruth_instances',images['real_I'],global_step=total_steps,walltime=None,dataformats='HWC')
