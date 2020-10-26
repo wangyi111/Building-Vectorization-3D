@@ -239,7 +239,6 @@ def define_G(input_nc, output_nc, ngf, which_model_netG, norm='batch', use_dropo
             
     return netG
 
-#############################################################################   stop here 10.23 21:34  ###############################################################################
 """  Discriminator  """
 def define_D(input_nc, ndf, which_model_netD,
              n_layers_D=3, norm='batch', use_sigmoid=False, gpu_ids=[]):

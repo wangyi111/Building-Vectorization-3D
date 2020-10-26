@@ -477,8 +477,11 @@ class Pix2PixModel(BaseModel):
             ## new!
             if self.opt.task == 'dsm_edges':
                 #pdb.set_trace()
-                
+                # new!!
                 target_E = self.input_E.new_zeros(self.input_E[:,0,:,:].shape)
+                target_E[self.input_E[:,2,:,:]>0] = 2 # background
+                target_E[self.input_E[:,0,:,:]>0] = 0 # corner
+                target_E[self.input_E[:,1,:,:]>0] = 1 # edge
                 self.loss_E = self.criterionEdges(self.pred_E,target_E.long()) # input_E should have shape [B,256,256] value from [0,1,2]
                 task_losses["LE"] = self.loss_E
             elif self.opt.task == 'dsm_edges_polygons':
@@ -503,7 +506,8 @@ class Pix2PixModel(BaseModel):
                     self.loss_G += loss * self.task_weights["GAN"]
                 ## new!!
                 elif loss_fn in ["LE"]:
-                    self.loss_G += loss * self.task_weights["LE"]   
+                    w = torch.exp(-s)
+                    self.loss_G += loss * w + r*2   
                      
                 else:
                     logger.error("Weighting function for %s not implemented!",
@@ -528,7 +532,7 @@ class Pix2PixModel(BaseModel):
             ## new!
             self.loss_G_E = 0
             if self.opt.task == 'dsm_edges':
-                self.loss_E = self.crirerionEdges(self.pred_E,self.input_E)
+                self.loss_E = self.criterionEdges(self.pred_E,self.input_E)
                 self.loss_G_E += self.loss_E
             
             self.loss_G = self.loss_G_GAN + self.loss_G_L1 + self.loss_G_SN + self.loss_G_E #Original
@@ -587,7 +591,9 @@ class Pix2PixModel(BaseModel):
         # new!!
         #pdb.set_trace()
         if self.opt.task == 'dsm_edges':
-            d['pred_E'] = util.tensor2im(self.pred_E.data, spectral = True)
+            vis_E = self.pred_E[:,0:2,:,:]
+            #pdb.set_trace()
+            d['pred_E'] = util.tensor2im(vis_E.data, spectral = True)
             
         return d
 

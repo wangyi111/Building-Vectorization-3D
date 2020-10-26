@@ -95,8 +95,10 @@ visualizer = Visualizer(opt) # util.visualizer.py
 # set up validation metrics
 val_metric = metrics.RMSE # metrics.py
 best_metric = np.inf 
-val_result = {}
-val_result = np.inf
+val_result_DSM = {}
+val_result_DSM = np.inf
+val_result_E = {}
+val_result_E = np.inf
 
 """  early stopping  """
 # initialize the early_stopping object
@@ -212,8 +214,8 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             with torch.no_grad():
 
                 # reset metrics
-                val_results = 0
-                
+                val_results_DSM = 0
+                val_results_E = 0
                 # run a forward pass
                 for data in tqdm(val_loader, desc="Validation   "):
                     
@@ -228,19 +230,22 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
                         sample.append(input_img)
                         
                     
-                    prediction = model.netG.forward(*sample)
+                    pred_DSM,pred_E = model.netG.forward(*sample)
+                    #pdb.set_trace()
+                    pred_E = torch.nn.Softmax(dim=1)(pred_E)
                     #print (val_metric(prediction, data["B"].cuda()))
 
-                    val_results += val_metric(prediction, data["B"].cuda())
-                    
+                    val_results_DSM += val_metric(pred_DSM, data["B"].cuda())
+                    val_results_E += val_metric(pred_E, data["Edges"].cuda())
                     
                 # average results taking into account the batch size
                 #pdb.set_trace()
-                val_result = val_results / (len(dataset_val)/opt.batchSize)
-
+                val_result_DSM = val_results_DSM / (len(dataset_val)/opt.batchSize)
+                val_result_E = val_results_E / (len(dataset_val)/opt.batchSize)
+                
                 # output results
                 logger.info("---------- Validation Results ----------")
-                logger.info("RMSE: %f", val_result)
+                logger.info("RMSE_DSM: %f      RMSE_E: %f", val_result_DSM,val_result_E)
 
 
 #            # early_stopping needs the validation loss to check if it has decresed, 
@@ -254,7 +259,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
 
             model.train() # back to training
 
-        best = val_result < best_metric           
+        best = val_result_DSM < best_metric           
             
 #        if total_steps % opt.save_latest_freq == 0 or best:
 #
@@ -296,7 +301,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
 #            logger.info("Saved checkpoint at iteration %i", total_steps)
 
             
-        best_metric = min(best_metric, val_result)
+        best_metric = min(best_metric, val_result_DSM)
 
     if total_steps % opt.val_freq == 0:
         errors = model.get_current_errors()

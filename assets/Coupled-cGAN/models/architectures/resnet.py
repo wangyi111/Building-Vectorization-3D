@@ -652,7 +652,7 @@ class CoupledUNetupperResnet(nn.Module):
 class CoupledUNetupperResnet_2(nn.Module): ## new!
     DEPTH = 6
 
-    def __init__(self, n_classes=1, m_classes=2, backbone = "resnet50"):
+    def __init__(self, n_classes=1, m_classes=3, backbone = "resnet50"):
         super(CoupledUNetupperResnet_2, self).__init__()
         
         if backbone == "resnet50":
@@ -728,7 +728,7 @@ class CoupledUNetupperResnet_2(nn.Module): ## new!
         self.tanh = nn.Tanh()
         
         self.out_edges = nn.Conv2d(64, m_classes, kernel_size=1, stride=1)
-        self.softmax = nn.Softmax()
+        #self.softmax = nn.Softmax()
         
         self.__init_weight()
 
@@ -810,7 +810,7 @@ class CoupledUNetupperResnet_2(nn.Module): ## new!
         x1 = self.tanh(x1)
         
         x2 = self.out_edges(x)
-        x2 = self.softmax(x2)
+        #x2 = self.softmax(x2)
 
         del dsm_pre_pools, img_pre_pools  
         
