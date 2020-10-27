@@ -48,7 +48,7 @@ class XdibiasDSMLoader(data.Dataset):
         if "Out" in self.config["data"]:
             self.Out = xdibias.Image(self.config["data"]["Out"])
             assert(self.DSM.XCellRes == self.Out.XCellRes)
-            assert(self.DSM.XCellRes == self.Out.XCellRes) ### Q7: repeat???
+            assert(self.DSM.YCellRes == self.Out.YCellRes) 
             xdibias.geo.intersectRect(bbox, self.Out.boundingBox())
         else:
             self.Out = None
@@ -58,7 +58,7 @@ class XdibiasDSMLoader(data.Dataset):
             # open ortho image and use that as second channel
             self.Ortho = xdibias.Image(self.config["data"]["Ortho"])
             assert(self.DSM.XCellRes == self.Ortho.XCellRes)
-            assert(self.DSM.XCellRes == self.Ortho.XCellRes)
+            assert(self.DSM.YCellRes == self.Ortho.YCellRes)
             xdibias.geo.intersectRect(bbox, self.Ortho.boundingBox())
         else:
             self.Ortho = None
@@ -68,7 +68,7 @@ class XdibiasDSMLoader(data.Dataset):
             # open mask image and use that as output for surface normals
             self.MASK = xdibias.Image(self.config["data"]["MASK"])
             assert(self.DSM.XCellRes == self.MASK.XCellRes)
-            assert(self.DSM.XCellRes == self.MASK.XCellRes)
+            assert(self.DSM.YCellRes == self.MASK.YCellRes)
             xdibias.geo.intersectRect(bbox, self.MASK.boundingBox())
         else:
             self.MASK = None
@@ -78,7 +78,7 @@ class XdibiasDSMLoader(data.Dataset):
             # open edges image and use that as ground truth for core_points prediction
             self.Edges = xdibias.Image(self.config["data"]["Edges"])
             assert(self.DSM.XCellRes == self.Edges.XCellRes)
-            assert(self.DSM.XCellRes == self.Edges.XCellRes)
+            assert(self.DSM.YCellRes == self.Edges.YCellRes)
             xdibias.geo.intersectRect(bbox, self.Edges.boundingBox())
         
         """  load building instances (new!)  """
@@ -86,7 +86,7 @@ class XdibiasDSMLoader(data.Dataset):
             
             self.Instances = xdibias.Image(self.config["data"]["Instances"])
             assert(self.DSM.XCellRes == self.Instances.XCellRes)
-            assert(self.DSM.XCellRes == self.Instances.XCellRes)
+            assert(self.DSM.YCellRes == self.Instances.YCellRes)
             xdibias.geo.intersectRect(bbox, self.Instances.boundingBox())        
         
         """  cut roi  """
@@ -184,36 +184,39 @@ class XdibiasDSMLoader(data.Dataset):
         ## stereo dsm ##
         input_dsm, norm_params = self.getPatch(self.DSM, i, j, norm=True, outliers = False) ### outliers = self.opt.isTrain Q4: not using outliers?   input_dsm->[-1,1] outlier simulation
         #print "input_dsm", input_dsm.min(), input_dsm.max()
-        input_dsm = Image.fromarray(input_dsm) # stereo dsm
+        input_dsm = Image.fromarray(input_dsm) # [256,256]
         
         ## ground truth dsm ##
         if self.Out is not None:       
             gt_model = self.getPatch(self.Out, i, j, norm=norm_params) # Q8: share stereo dsm's norm_param?? WHy??  gt_dsm->not [-1,1]  to reconstruct height
             #print "gt_model", gt_model.min(), gt_model.max()
-            gt_model = Image.fromarray(gt_model)
+            gt_model = Image.fromarray(gt_model) # [256,256]
 
         ## ortho photo ##
         if self.Ortho is not None:
             input_ortho = self.getPatch(self.Ortho, i, j, norm="intensity") # norm p2,p98 & [-1,1]
             #print "input_ortho", input_ortho.min(), input_ortho.max()
-            input_ortho = Image.fromarray(input_ortho)
+            input_ortho = Image.fromarray(input_ortho) # [256,256]
 
         ## building mask ##    
         if self.MASK:
             gt_mask = self.getPatch(self.MASK, i, j, norm=False) # [0,255]
-            gt_mask = Image.fromarray(gt_mask)
+            gt_mask = Image.fromarray(gt_mask) # [256,256]
         
         ## Edges (new!) ##
         if self.Edges:
-            #pdb.set_trace()
             gt_edges = self.getPatch(self.Edges, i, j, norm=False) # [0,1] Q9: zero center or not?
-            #gt_edges = Image.fromarray(gt_edges)
+            #gt_edges = Image.fromarray(gt_edges) # [256,256,2]
+            img_b = np.zeros_like(gt_edges[:,:,0])
+            img_b[(gt_edges==[0,0]).all(-1)]=1
+            img_b = np.expand_dims(img_b,axis=-1)
+            gt_edges = np.concatenate((gt_edges,img_b),axis=-1)
 
         ## Instances (new!) ##
         if self.Instances:
             #pdb.set_trace()
             gt_instances = self.getPatch(self.Instances, i, j, norm=False) # [0,1] Q9: zero center or not?
-            #gt_edges = Image.fromarray(gt_edges)            
+            #gt_edges = Image.fromarray(gt_edges) # [256,256]            
                 
         """  random flip  """    
         if self.opt.isTrain:    

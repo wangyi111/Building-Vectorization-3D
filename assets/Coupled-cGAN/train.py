@@ -38,11 +38,9 @@ SEED = 123
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
-torch.manual_seed(SEED) ### Q1: set twice?
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 torch.set_num_threads(1)
-np.random.seed(SEED) ### Q2: set twice?
 
 """  define and parse arguments  """
 optparse = TrainOptions() ## from options.train_options import TrainOptions
@@ -86,8 +84,9 @@ val_loader = torch.utils.data.DataLoader(dataset_val,
 n_samples_val = len(dataset_val)
 logger.info('Got %d validation images' % n_samples_val)
 
-"""  create model  """                                            
-model = create_model(opt) # models.models.py  models.pix2pix_model.py: Q8,....
+"""  create model  """
+#pdb.set_trace()                                            
+model = create_model(opt) # models.models.py -> models.pix2pix_model.py: Q8,....
 
 """  create visualizes  """
 visualizer = Visualizer(opt) # util.visualizer.py
@@ -96,8 +95,10 @@ visualizer = Visualizer(opt) # util.visualizer.py
 # set up validation metrics
 val_metric = metrics.RMSE # metrics.py
 best_metric = np.inf 
-val_result = {}
-val_result = np.inf
+val_result_DSM = {}
+val_result_DSM = np.inf
+val_result_E = {}
+val_result_E = np.inf
 
 """  early stopping  """
 # initialize the early_stopping object
@@ -135,6 +136,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
         model.set_input(data)
          
         ## training ##
+        #pdb.set_trace()
         model.optimize_parameters() # Optimize
         
         ## visualization ##
@@ -162,7 +164,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
                     
         ## tensorboard ##
         if total_steps % opt.display_freq == 0:
-            pdb.set_trace()
+            #pdb.set_trace()
             #tb_writer.add_scalar(tag,scalar_value,global_step=None,walltime=None)
             #tb_writer.add_scalars(tag,scalar_dict,global_step=None,walltime=None)
             #tb_writer.add_image(tag,img_tensor,global_step=None,walltime=None,dataformats='CHW')
@@ -177,7 +179,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             tb_writer.add_image('orthophoto',images['real_O'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('refined_dsm',images['fake_B'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('GroundTruth_dsm',images['real_B'],global_step=total_steps,walltime=None,dataformats='HWC')
-            #tb_writer.add_image('predicted_corepoints',images['fake_E'],global_step=total_steps,walltime=None,dataformats='HWC')
+            tb_writer.add_image('predicted_corepoints',images['pred_E'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('GroundTruth_corepoints',images['real_E'],global_step=total_steps,walltime=None,dataformats='HWC')
             #tb_writer.add_image('predicted_instances',images['fake_I'],global_step=total_steps,walltime=None,dataformats='HWC')
             tb_writer.add_image('GroundTruth_instances',images['real_I'],global_step=total_steps,walltime=None,dataformats='HWC')
@@ -212,8 +214,8 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
             with torch.no_grad():
 
                 # reset metrics
-                val_results = 0
-                
+                val_results_DSM = 0
+                val_results_E = 0
                 # run a forward pass
                 for data in tqdm(val_loader, desc="Validation   "):
                     
@@ -228,19 +230,22 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
                         sample.append(input_img)
                         
                     
-                    prediction = model.netG.forward(*sample)
+                    pred_DSM,pred_E = model.netG.forward(*sample)
+                    #pdb.set_trace()
+                    pred_E = torch.nn.Softmax(dim=1)(pred_E)
                     #print (val_metric(prediction, data["B"].cuda()))
 
-                    val_results += val_metric(prediction, data["B"].cuda())
-                    
+                    val_results_DSM += val_metric(pred_DSM, data["B"].cuda())
+                    val_results_E += val_metric(pred_E, data["Edges"].cuda())
                     
                 # average results taking into account the batch size
                 #pdb.set_trace()
-                val_result = val_results / (len(dataset_val)/opt.batchSize)
-
+                val_result_DSM = val_results_DSM / (len(dataset_val)/opt.batchSize)
+                val_result_E = val_results_E / (len(dataset_val)/opt.batchSize)
+                
                 # output results
                 logger.info("---------- Validation Results ----------")
-                logger.info("RMSE: %f", val_result)
+                logger.info("RMSE_DSM: %f      RMSE_E: %f", val_result_DSM,val_result_E)
 
 
 #            # early_stopping needs the validation loss to check if it has decresed, 
@@ -254,7 +259,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
 
             model.train() # back to training
 
-        best = val_result < best_metric           
+        best = val_result_DSM < best_metric           
             
 #        if total_steps % opt.save_latest_freq == 0 or best:
 #
@@ -296,7 +301,7 @@ for epoch in range(opt.epoch_count, opt.niter + opt.niter_decay + 1):
 #            logger.info("Saved checkpoint at iteration %i", total_steps)
 
             
-        best_metric = min(best_metric, val_result)
+        best_metric = min(best_metric, val_result_DSM)
 
     if total_steps % opt.val_freq == 0:
         errors = model.get_current_errors()
