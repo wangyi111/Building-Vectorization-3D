@@ -1,7 +1,7 @@
 '''
 vectorize raster edge/corner
 input: raster edge [0,255,0] / corner [255,0,0]
-         
+output: list of edges (corner1[pr,pc], corner2[pr,pc])         
 
 
 '''
@@ -13,6 +13,8 @@ import pdb
 from PIL import Image
 from tqdm import tqdm
 import math
+import shapely
+import shapely.ops
 
 class Corner():
     def __init__(self,pr,pc):
@@ -82,19 +84,20 @@ def IsEdge(c1,c2,img):
         #pdb.set_trace()
         return np.mean(img[rrl,ccl,1])
     
-
+def xy2rc(x,y):
+    return -y,x
 
 
 
 
 ''' load input raster image '''
 
-roi_row1 = 40000
-roi_row2 = 41000
+roi_row1 = 20000
+roi_row2 = 22000
 roi_col1 = 2000
-roi_col2 = 3000
+roi_col2 = 4000
 
-test_img = xdibias.Image('/home/wang_yi/la/UNet_edge2/test_output/result_edges')
+test_img = xdibias.Image('/home/wang_yi/la/UNet_edge2/test_output/dsm_ks/result_edges')
 data = test_img.readImageData()
 
 data1 = data[roi_row1:roi_row2,roi_col1:roi_col2,:]
@@ -182,8 +185,39 @@ for i,edge in enumerate(edges):
     
 
 img = Image.fromarray((out*255).astype('uint8'))
-img.save('output/output_visual.png')
+img.save('test_edge_w0.png')
 
+
+
+''' polygons '''
+#pdb.set_trace()
+out2 = np.zeros(data2.shape)
+
+lines_xy = []
+for i,edge in enumerate(edges):
+    
+    line_xy = ( (edge.left.pc,-edge.left.pr), (edge.right.pc,-edge.right.pr) )
+    lines_xy.append(line_xy)
+
+#pdb.set_trace()
+polygons_xy = list(shapely.ops.polygonize(lines_xy))
+
+polygons = []
+for i,polygon_xy in enumerate(polygons_xy):
+    polygon = list((shapely.ops.transform(xy2rc,polygon_xy)).exterior.coords)    
+    polygons.append(polygon)
+
+    rc = np.asarray(polygon)
+    r = rc[:,0]
+    c = rc[:,1]
+    rr,cc = skimage.draw.polygon(r,c)
+    out2[rr,cc] = (0.5,0.5,0.5)
+
+
+img2 = Image.fromarray((out2*255).astype('uint8'))
+img2.save('test_polygon_w0.png')
+    
+    
 
 
     
