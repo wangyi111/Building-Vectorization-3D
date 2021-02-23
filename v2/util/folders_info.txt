@@ -1,0 +1,30 @@
+
+
+UResNet-only:  'test_output/unet_only'  unet-only (cre)->refined dsm + edges  100 epoch finished
+
+test_cgan_multi_loss: cgan (wd+wc+dice) -> refined_dsm+edges   150 epoch finished
+
+test_cgan_dice_cre: cgan (cre+dice) -> refined_dsm+edges   
+
+test_cgan_2D: 2 decoders cgan (cre)
+
+
+
+
+UNet_edge2:  refined dsm -> unet-only (cre) -> edges   200 epoch finished
+
+test_cgan_edge:  refined dsm -> cgan (cre+fm) -> edges   running
+
+
+
+cGAN-light: cgan(gan_w=-2.7) -> refined_dsm
+
+dsm_refinement: cgan(gan_w=1) -> refined_dsm
+
+
+
+finished version 1:
+
+Coupled-cGAN (test_Yi, dsm) --> UNet_edge2 (test_Yi_edge2, edge) --> vectorize
+
+

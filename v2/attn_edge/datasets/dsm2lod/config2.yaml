@@ -1,0 +1,24 @@
+---
+logging:
+  log_freq: 50
+  log_level: info
+  log_dir: /home/wang_yi/la/tensorboard_log
+  n_val_imgs: 5
+data:
+  DSM: /home/wang_yi/la/attn_dsm/test_output/attn_dsm2/result_dsm #train stereo dsm
+  MASK: /home/wang_yi/la/dataset/Munich/pan #building mask for norm-loss
+  Ortho: /home/wang_yi/la/dataset/Munich/pan #orthophoto(pan)
+  Out: /home/wang_yi/la/dataset/Munich/dsm #GroundTruth DSM
+  Edges: /home/wang_yi/la/dataset/Munich/pan
+  Instances: /home/wang_yi/la/dataset/Munich/pan # GT building instances (new!)
+#  roi_train: [0, 0, 30733, 40000]
+#  roi_val: [0, 40000, 30733, 5999]
+  roi_test: [0, 0, 1182, 1007] #[30733, 0, 4950, 5999]
+
+minQuantile: 0.01
+heightRange: 200
+
+patience: 7
+
+
+

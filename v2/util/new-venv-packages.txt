@@ -1,0 +1,26 @@
+## xdibias ##
+numpy
+
+shapely
+
+...
+
+
+## main ##
+
+
+conda install pytorch torchvision cudatoolkit=9.2 -c pytorch
+
+conda install -c conda-forge visdom 
+
+conda install -c anaconda scikit-learn 
+
+conda install -c anaconda scikit-image 
+
+ conda install -c anaconda pyyaml 
+
+conda install -c conda-forge dominate
+
+conda install tqdm
+
+conda install -c anaconda opencv

@@ -1,0 +1,35 @@
+###########################################################################
+#setup to run the provided dsm-refinement software 
+
+######################### visdom server #########################
+$ ssh -X othrys3  #login to server
+(input password)
+
+############################
+(if login to othrys2)
+$ source /home/wang_yi/.bashrc  #when path error, e.g. /usrs/wang_yi
+############################
+
+(base)$ conda activate myenv  #activate my virtualenv
+
+(myenv) $ source ~xdibias/xdibias2-Ubuntu-14.04/current/setenv_xdibias.sh  #activate xdibias env
+
+(myenv) $ cd /home/wang_yi/la/Coupled-cGAN  #go to software directory
+
+(myenv) $ python -m visdom.server -port 8097  # start visdom, go to browser with http://othrys3:8097
+
+######################### run training #########################
+## open another tab
+
+$ ssh -X othrys3  
+(input password)
+
+(base) $ conda activate myenv 
+
+(myenv) $ source ~xdibias/xdibias2-Ubuntu-14.04/current/setenv_xdibias.sh  #activate xdibias env
+
+(myenv) $ cd /home/wang_yi/la/Coupled-cGAN  #go to software directory
+
+(myenv) $ bash config/start_training_wthLossWeights_CoupledUResNet50.sh  #training
+
+
