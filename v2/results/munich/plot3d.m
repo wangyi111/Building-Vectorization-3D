@@ -2,11 +2,11 @@ clear
 clc
 
 %%%%% read & plot ortho
-o = Tiff('ortho.tif','r');
+o = Tiff('pan.tif','r');
 O = read(o);
 
 O2 = double(O);
-p = prctile(O2,[1,99],'all');
+p = prctile(O2,[2,98],'all');
 
 O2 = (O2 - p(1))./(p(2)-p(1));
 O2(O2>1) = 1;
@@ -14,27 +14,34 @@ O2(O2<0) = 0;
 %O2 = O2*255;
 %O3 = int(O2*255);
 figure(1)
-image(O2,'CDataMapping','scaled')
+O3 = ones(size(O2))*255;
+image(O3)
+%image(O3,'CDataMapping','scaled')
 colormap(gray)
-hold on
+%hold on
 
 
 
 %%%%% read ndsm
-t = Tiff('refined_ndsm.tif','r');
+t = Tiff('dsm_out.tif','r');
 H = read(t);
-
+H = H - 550;
 %figure(1)
 %image(H)
 %hold on
 
 %%%%% read polygons_in & plot roofs
-S1 = shaperead('sample_polys_in.shp');
+S1 = shaperead('vec/sample_polys_in_geo.shp');
+%S1 = shaperead('vec/test_building.shp');
 
 %figure(2)
 for i=1:length(S1)
-    r = S1(i).X;
-    c = S1(i).Y;
+
+    %r = S1(i).X;
+    %c = S1(i).Y;
+    r = -S1(i).Y;
+    c = S1(i).X;
+    
     %x = c(1:(length(c)-2));
     %y = 1000-r(1:(length(r)-2));
     y = r(1:(length(r)-2));
@@ -42,23 +49,32 @@ for i=1:length(S1)
     z = zeros(1,length(x));
     for j=1:length(r)-2
         left = max(1,r(j)-5);
-        right = min(1000,r(j)+5);
+        right = min(1007,r(j)+5);
         up = max(1,c(j)-5);
-        down = min(1000,c(j)+5);
+        down = min(1182,c(j)+5);
         window = H(left:right,up:down);
+        if isempty(window)
+            z(j) = NaN;
+        else
         z(j)=max(window(:));
+        end
+        
     end
     patch(x,y,z,'red')
 end
 
 
 %%%%% read polygons_out & plot ground
-S2 = shaperead('sample_polys_out.shp');
+S2 = shaperead('vec/sample_polys_out_geo.shp');
+%S2 = shaperead('vec/test_building_out.shp');
 
 %figure(2)
 for i=1:length(S2)
-    r = S2(i).X;
-    c = S2(i).Y;
+    %r = S2(i).X;
+    %c = S2(i).Y;
+    r = -S2(i).Y;
+    c = S2(i).X;
+    
     %x = c(1:(length(c)-2));
     %y = 1000-r(1:(length(r)-2));
     y = r(1:(length(r)-2));
@@ -79,8 +95,11 @@ end
 %%%%% plot walls
 for i=1:length(S2)
     
-    r = S2(i).X;
-    c = S2(i).Y;
+    %r = S2(i).X;
+    %c = S2(i).Y;
+    r = -S2(i).Y;
+    c = S2(i).X;    
+    
     %x = c(1:(length(c)-2));
     %y = 1000-r(1:(length(r)-2));
     y = r(1:(length(r)-1));
@@ -90,13 +109,23 @@ for i=1:length(S2)
     z2 = zeros(1,length(x));
     for j=1:length(z1)
         left = max(1,r(j)-5);
-        right = min(1000,r(j)+5);
+        right = min(1007,r(j)+5);
         up = max(1,c(j)-5);
-        down = min(1000,c(j)+5);
+        down = min(1182,c(j)+5);
         window = H(left:right,up:down);
         %z(j)=min(window(:));
-        z1(j)=0;
-        z2(j)=max(window(:));
+        
+        if isempty(window)
+            z1(j) = NaN;
+            z2(j) = NaN;
+        else
+            z1(j) = 0;
+            z2(j) = max(window(:));
+            
+        end
+        
+        %z1(j)=0;
+        %z2(j)=max(window(:));
     end    
     
     for j=1:length(x)-1
